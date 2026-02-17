@@ -1,0 +1,591 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Helper per ottenere user_id corrente
+async function getCurrentUserId() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non autenticato')
+  return user.id
+}
+
+// Helper functions per le operazioni comuni
+export const db = {
+  // DOGS
+  async getDogs(status = null) {
+    let query = supabase
+      .from('dogs')
+      .select('*')
+      .order('name')
+    
+    if (status) {
+      query = query.eq('status', status)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data
+  },
+
+  async getDog(id) {
+    const { data, error } = await supabase
+      .from('dogs')
+      .select('*')
+      .eq('id', id)
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async createDog(dog) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('dogs')
+      .insert([{ ...dog, user_id: userId }])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async updateDog(id, updates) {
+    const { data, error } = await supabase
+      .from('dogs')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async deleteDog(id) {
+    const { error } = await supabase
+      .from('dogs')
+      .delete()
+      .eq('id', id)
+    
+    if (error) throw error
+  },
+
+  // HEAT CYCLES
+  async getHeatCycles(dogId = null) {
+    let query = supabase
+      .from('heat_cycles')
+      .select(`
+        *,
+        dog:dogs(name, microchip)
+      `)
+      .order('start_date', { ascending: false })
+    
+    if (dogId) {
+      query = query.eq('dog_id', dogId)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data
+  },
+
+  async createHeatCycle(cycle) {
+    const { data, error } = await supabase
+      .from('heat_cycles')
+      .insert([cycle])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // EXPENSES
+  async getExpenses(filters = {}) {
+    let query = supabase
+      .from('expenses')
+      .select(`
+        *,
+        dog:dogs(name)
+      `)
+      .order('expense_date', { ascending: false })
+    
+    if (filters.category) {
+      query = query.eq('category', filters.category)
+    }
+    
+    if (filters.startDate) {
+      query = query.gte('expense_date', filters.startDate)
+    }
+    
+    if (filters.endDate) {
+      query = query.lte('expense_date', filters.endDate)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data
+  },
+
+  async createExpense(expense) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([{ ...expense, user_id: userId }])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // INCOME
+  async getIncome(filters = {}) {
+    let query = supabase
+      .from('income')
+      .select('*')
+      .order('income_date', { ascending: false })
+    
+    if (filters.category) {
+      query = query.eq('category', filters.category)
+    }
+    
+    if (filters.startDate) {
+      query = query.gte('income_date', filters.startDate)
+    }
+    
+    if (filters.endDate) {
+      query = query.lte('income_date', filters.endDate)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data
+  },
+
+  async createIncome(income) {
+    const { data, error } = await supabase
+      .from('income')
+      .insert([income])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // PUPPIES
+  async getPuppies(litterId = null, status = null) {
+    let query = supabase
+      .from('puppies')
+      .select(`
+        *,
+        litter:litters(
+          birth_date,
+          mating:matings(
+            female:female_id(name),
+            male:male_id(name)
+          )
+        )
+      `)
+      .order('created_at', { ascending: false })
+    
+    if (litterId) {
+      query = query.eq('litter_id', litterId)
+    }
+    
+    if (status) {
+      query = query.eq('status', status)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data
+  },
+
+  async createPuppy(puppy) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('puppies')
+      .insert([{ ...puppy, user_id: userId }])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async updatePuppy(id, updates) {
+    const { data, error } = await supabase
+      .from('puppies')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async deletePuppy(id) {
+    const { error } = await supabase
+      .from('puppies')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // EVENTS
+  async getEvents(filters = {}) {
+    let query = supabase
+      .from('events')
+      .select(`
+        *,
+        dog:dogs(name)
+      `)
+      .order('event_date')
+    
+    if (filters.upcoming) {
+      query = query
+        .gte('event_date', new Date().toISOString().split('T')[0])
+        .eq('completed', false)
+    }
+    
+    if (filters.dogId) {
+      query = query.eq('dog_id', filters.dogId)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data
+  },
+
+  async createEvent(event) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('events')
+      .insert([{ ...event, user_id: userId }])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async updateEvent(id, updates) {
+    const { data, error } = await supabase
+      .from('events')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async deleteEvent(id) {
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // DASHBOARD SUMMARY
+  async getDashboardSummary() {
+    const { data, error } = await supabase
+      .from('dashboard_summary')
+      .select('*')
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // STATISTICS - Annuali
+  async getYearlyIncome(year = new Date().getFullYear()) {
+    const { data, error } = await supabase
+      .from('income')
+      .select('amount')
+      .gte('income_date', `${year}-01-01`)
+      .lte('income_date', `${year}-12-31`)
+
+    if (error) throw error
+
+    const total = data.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+    return total
+  },
+
+  async getYearlyExpenses(year = new Date().getFullYear()) {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('amount')
+      .gte('expense_date', `${year}-01-01`)
+      .lte('expense_date', `${year}-12-31`)
+
+    if (error) throw error
+
+    const total = data.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+    return total
+  },
+
+  async getActiveDogs() {
+    const { data, error } = await supabase
+      .from('dogs')
+      .select('id')
+      .eq('status', 'attivo')
+
+    if (error) throw error
+    return data.length
+  },
+
+  async getAvailablePuppies() {
+    const { data, error } = await supabase
+      .from('puppies')
+      .select('id')
+      .eq('status', 'disponibile')
+
+    if (error) throw error
+    return data.length
+  },
+
+  // DOG MEASUREMENTS - Tracciamento crescita
+  async getDogMeasurements(dogId) {
+    const { data, error } = await supabase
+      .from('dog_measurements')
+      .select('*')
+      .eq('dog_id', dogId)
+      .order('measurement_date', { ascending: true })
+
+    if (error) throw error
+    return data
+  },
+
+  async createDogMeasurement(measurement) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('dog_measurements')
+      .insert([{ ...measurement, user_id: userId }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async updateDogMeasurement(id, updates) {
+    const { data, error } = await supabase
+      .from('dog_measurements')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteDogMeasurement(id) {
+    const { error } = await supabase
+      .from('dog_measurements')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // HEALTH RECORDS
+  async getHealthRecords(dogId) {
+    const { data, error } = await supabase
+      .from('health_records')
+      .select('*')
+      .eq('dog_id', dogId)
+      .order('record_date', { ascending: false })
+    
+    if (error) throw error
+    return data
+  },
+
+  async createHealthRecord(record) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('health_records')
+      .insert([{ ...record, user_id: userId }])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async deleteHealthRecord(id) {
+    const { error } = await supabase
+      .from('health_records')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // STORAGE - Upload immagini
+  async uploadImage(file, bucket = 'dogs-photos', path = '') {
+    const userId = await getCurrentUserId()
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Date.now()}.${fileExt}`
+    const filePath = `${userId}/${path ? path + '/' : ''}${fileName}`
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file)
+
+    if (error) throw error
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath)
+
+    return publicUrl
+  },
+
+  // MATINGS
+  async getMatings() {
+    const { data, error } = await supabase
+      .from('matings')
+      .select(`
+        *,
+        female:dogs!matings_female_id_fkey(id, name),
+        male:dogs!matings_male_id_fkey(id, name)
+      `)
+      .order('mating_date', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  async createMating(mating) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('matings')
+      .insert([{ ...mating, user_id: userId }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async updateMating(id, updates) {
+    const { data, error } = await supabase
+      .from('matings')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteMating(id) {
+    const { error } = await supabase
+      .from('matings')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // LITTERS
+  async getLitters() {
+    const { data, error } = await supabase
+      .from('litters')
+      .select(`
+        *,
+        mating:matings(
+          female:dogs!matings_female_id_fkey(name),
+          male:dogs!matings_male_id_fkey(name)
+        )
+      `)
+      .order('birth_date', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  async createLitter(litter) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('litters')
+      .insert([{ ...litter, user_id: userId }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async updateLitter(id, updates) {
+    const { data, error } = await supabase
+      .from('litters')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteLitter(id) {
+    const { error } = await supabase
+      .from('litters')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // SETTINGS
+  async getSettings() {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async updateSettings(updates) {
+    const userId = await getCurrentUserId()
+
+    const { data, error } = await supabase
+      .from('settings')
+      .update(updates)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+}

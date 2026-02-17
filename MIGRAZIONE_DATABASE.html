@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migrazione Database - Istruzioni</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 800px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #1a202c;
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 900;
+        }
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .error-box {
+            background: #fed7d7;
+            border-left: 4px solid #fc8181;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .error-box code {
+            display: block;
+            color: #742a2a;
+            font-family: 'Courier New', monospace;
+            margin-top: 10px;
+        }
+        .step {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #e2e8f0;
+        }
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .step-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+        .code-box {
+            background: #2d3748;
+            color: #68d391;
+            padding: 20px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 15px 0;
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .copy-btn:hover {
+            background: #2d3748;
+        }
+        .copy-btn.copied {
+            background: #48bb78;
+        }
+        .success {
+            background: #c6f6d5;
+            border-left: 4px solid #48bb78;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            color: #22543d;
+        }
+        .warning {
+            background: #fefcbf;
+            border-left: 4px solid #ecc94b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            color: #744210;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Migrazione Database Necessaria</h1>
+        <p class="subtitle">Sistema di Riproduzione - Aggiungi colonne mancanti</p>
+
+        <div class="error-box">
+            <strong>⚠️ Errore rilevato:</strong>
+            <code>Could not find the 'females' column of 'litters' in the schema cache</code>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                Apri SQL Editor di Supabase
+            </div>
+            <p style="margin-bottom: 15px;">Clicca questo pulsante per aprire direttamente l'SQL Editor:</p>
+            <a href="https://app.supabase.com/project/pmidxvswypdhdlscumyr/sql/new" target="_blank" class="btn btn-primary">
+                🚀 Apri SQL Editor
+            </a>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                Copia e incolla questo script
+            </div>
+            <div class="code-box">
+                <button class="copy-btn" onclick="copyScript()">📋 Copia</button>
+                <pre id="sqlScript">-- Aggiungi colonne mancanti
+ALTER TABLE matings ADD COLUMN IF NOT EXISTS mating_dates JSONB;
+ALTER TABLE litters ADD COLUMN IF NOT EXISTS males INTEGER DEFAULT 0;
+ALTER TABLE litters ADD COLUMN IF NOT EXISTS females INTEGER DEFAULT 0;
+
+-- Fix alive_puppies NOT NULL constraint
+ALTER TABLE litters ALTER COLUMN alive_puppies DROP NOT NULL;
+ALTER TABLE litters ALTER COLUMN deceased_puppies SET DEFAULT 0;
+
+-- Aggiorna dati esistenti
+UPDATE matings SET mating_dates = jsonb_build_array(mating_date::text)
+WHERE mating_dates IS NULL AND mating_date IS NOT NULL;
+
+UPDATE litters SET alive_puppies = total_puppies - COALESCE(deceased_puppies, 0)
+WHERE alive_puppies IS NULL;
+
+-- Verifica
+SELECT 'Modifiche completate con successo!' as status;</pre>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                Esegui lo script
+            </div>
+            <p>Nell'SQL Editor, clicca sul pulsante <strong>"Run"</strong> o premi <strong>Ctrl+Enter</strong></p>
+            <p style="margin-top: 10px;">Dovresti vedere: <code style="background: #e6fffa; padding: 4px 8px; border-radius: 4px; color: #234e52;">status: "Modifiche completate con successo!"</code></p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                Ricarica l'applicazione
+            </div>
+            <p>Torna all'applicazione e premi <strong>F5</strong> per ricaricare la pagina</p>
+        </div>
+
+        <div class="success">
+            <strong>✅ Fatto!</strong> Ora potrai:
+            <ul style="margin-top: 10px; margin-left: 20px;">
+                <li>Selezionare maschi e femmine negli accoppiamenti</li>
+                <li>Inserire fino a 3 date di accoppiamento</li>
+                <li>Specificare il numero di maschi e femmine nelle cucciolate</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>💡 Nota:</strong> Queste modifiche sono sicure e non cancellano dati esistenti. Usano <code>IF NOT EXISTS</code> per evitare errori se le colonne sono già presenti.
+        </div>
+    </div>
+
+    <script>
+        function copyScript() {
+            const script = document.getElementById('sqlScript').textContent;
+            navigator.clipboard.writeText(script).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = '✅ Copiato!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = '📋 Copia';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
+
