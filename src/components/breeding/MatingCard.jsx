@@ -1,4 +1,4 @@
-import { Calendar, Edit, Trash2, AlertCircle } from 'lucide-react'
+import { Calendar, Edit, Trash2, AlertCircle, Baby, CheckCircle } from 'lucide-react'
 
 export default function MatingCard({ mating, onEdit, onDelete }) {
   // Gestisce sia date multiple che data singola
@@ -17,13 +17,26 @@ export default function MatingCard({ mating, onEdit, onDelete }) {
   const isNearDelivery = daysUntilDelivery !== null && daysUntilDelivery <= 7 && daysUntilDelivery >= 0
   const isPastDelivery = daysUntilDelivery !== null && daysUntilDelivery < 0
 
+  // Verifica se la cucciolata è nata
+  const litterBorn = mating.litter_born
+  const litterBirthDate = mating.litter_birth_date ? new Date(mating.litter_birth_date) : null
+  const gestationDays = mating.gestation_days
+
   return (
     <div className="bg-white rounded-3xl p-6 shadow-sm border-2 border-gray-100 hover:border-primary-200 transition group">
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <h3 className="text-xl font-black text-dark-900 mb-2">
-            {mating.female?.name} × {mating.male?.name}
-          </h3>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-xl font-black text-dark-900">
+              {mating.female?.name} × {mating.male?.name}
+            </h3>
+            {litterBorn && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">
+                <CheckCircle className="w-3 h-3" />
+                Cucciolata nata
+              </span>
+            )}
+          </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Calendar className="w-4 h-4" />
@@ -54,7 +67,28 @@ export default function MatingCard({ mating, onEdit, onDelete }) {
         </div>
       </div>
 
-      {expectedDelivery && (
+      {/* Informazioni cucciolata nata */}
+      {litterBorn && litterBirthDate && (
+        <div className="mb-4 rounded-2xl p-4 bg-green-50 border-2 border-green-200">
+          <div className="flex items-center gap-3">
+            <Baby className="w-6 h-6 text-green-600" />
+            <div className="flex-1">
+              <div className="text-sm font-bold text-green-600">Cucciolata nata il</div>
+              <div className="text-lg font-black text-dark-900">
+                {litterBirthDate.toLocaleDateString('it-IT')}
+              </div>
+              {gestationDays && (
+                <div className="text-xs text-green-600 mt-1">
+                  Dopo {gestationDays} giorni di gestazione
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parto previsto (solo se cucciolata non ancora nata) */}
+      {!litterBorn && expectedDelivery && (
         <div className={`rounded-2xl p-4 ${
           isPastDelivery ? 'bg-red-50' :
           isNearDelivery ? 'bg-yellow-50' : 'bg-primary-50'

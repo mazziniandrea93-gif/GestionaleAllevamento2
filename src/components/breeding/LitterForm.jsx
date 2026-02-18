@@ -23,7 +23,12 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
   async function loadMatings() {
     try {
       const data = await db.getMatings()
-      setMatings(data)
+      // Filtra accoppiamenti: mostra solo quelli senza cucciolata nata
+      // Se in modifica, includi l'accoppiamento corrente
+      const availableMatings = data.filter(m =>
+        !m.litter_born || (litter && m.id === litter.mating_id)
+      )
+      setMatings(availableMatings)
     } catch (error) {
       console.error('Errore caricamento accoppiamenti:', error)
     }
@@ -51,9 +56,43 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
       }
 
       if (litter) {
+        // Modifica cucciolata esistente
         await db.updateLitter(litter.id, litterData)
+
+        // Aggiorna anche l'accoppiamento se la data di nascita è cambiata
+        if (litterData.mating_id && litterData.birth_date) {
+          const mating = matings.find(m => m.id === litterData.mating_id)
+          if (mating) {
+            const matingDate = new Date(mating.mating_date)
+            const birthDate = new Date(litterData.birth_date)
+            const gestationDays = Math.floor((birthDate - matingDate) / (1000 * 60 * 60 * 24))
+
+            await db.updateMating(mating.id, {
+              litter_birth_date: litterData.birth_date,
+              gestation_days: gestationDays,
+              litter_born: true
+            })
+          }
+        }
       } else {
+        // Nuova cucciolata
         await db.createLitter(litterData)
+
+        // Aggiorna l'accoppiamento associato
+        if (litterData.mating_id && litterData.birth_date) {
+          const mating = matings.find(m => m.id === litterData.mating_id)
+          if (mating) {
+            const matingDate = new Date(mating.mating_date)
+            const birthDate = new Date(litterData.birth_date)
+            const gestationDays = Math.floor((birthDate - matingDate) / (1000 * 60 * 60 * 24))
+
+            await db.updateMating(mating.id, {
+              litter_birth_date: litterData.birth_date,
+              gestation_days: gestationDays,
+              litter_born: true
+            })
+          }
+        }
       }
 
       onSuccess()
@@ -95,19 +134,25 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
             <label className="block text-sm font-bold text-gray-700 mb-2">
               Accoppiamento *
             </label>
-            <select
-              value={formData.mating_id}
-              onChange={(e) => setFormData({ ...formData, mating_id: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-primary-500 focus:outline-none transition"
-              required
-            >
-              <option value="">Seleziona accoppiamento</option>
-              {matings.map((mating) => (
-                <option key={mating.id} value={mating.id}>
-                  {mating.female?.name} × {mating.male?.name} - {new Date(mating.mating_date).toLocaleDateString('it-IT')}
-                </option>
-              ))}
-            </select>
+            {matings.length === 0 && !litter ? (
+              <div className="w-full px-4 py-3 border-2 border-yellow-200 bg-yellow-50 rounded-2xl text-yellow-700 text-sm">
+                ⚠️ Nessun accoppiamento disponibile. Tutti gli accoppiamenti hanno già una cucciolata dichiarata.
+              </div>
+            ) : (
+              <select
+                value={formData.mating_id}
+                onChange={(e) => setFormData({ ...formData, mating_id: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-primary-500 focus:outline-none transition"
+                required
+              >
+                <option value="">Seleziona accoppiamento</option>
+                {matings.map((mating) => (
+                  <option key={mating.id} value={mating.id}>
+                    {mating.female?.name} × {mating.male?.name} - {new Date(mating.mating_date).toLocaleDateString('it-IT')}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Data di nascita */}

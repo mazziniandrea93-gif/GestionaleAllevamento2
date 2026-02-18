@@ -31,9 +31,25 @@ export default function Breeding() {
 
   // Mutation per eliminare cucciolata
   const deleteLitterMutation = useMutation({
-    mutationFn: (id) => db.deleteLitter(id),
+    mutationFn: async (litterId) => {
+      // Prima trova la cucciolata per ottenere l'ID dell'accoppiamento
+      const litter = litters.find(l => l.id === litterId)
+
+      // Elimina la cucciolata
+      await db.deleteLitter(litterId)
+
+      // Se c'era un accoppiamento associato, resettalo
+      if (litter && litter.mating_id) {
+        await db.updateMating(litter.mating_id, {
+          litter_birth_date: null,
+          gestation_days: null,
+          litter_born: false
+        })
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['litters'])
+      queryClient.invalidateQueries(['matings'])
     }
   })
 
@@ -79,6 +95,7 @@ export default function Breeding() {
 
   function handleLitterSuccess() {
     queryClient.invalidateQueries(['litters'])
+    queryClient.invalidateQueries(['matings']) // Invalida anche gli accoppiamenti per aggiornare la disponibilità
   }
 
   function handleMatingSuccess() {
