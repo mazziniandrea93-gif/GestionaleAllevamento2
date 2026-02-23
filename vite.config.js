@@ -14,4 +14,15 @@ export default defineConfig({
     port: 3000,
     open: true,
   },
+  preview: {
+    port: 3000,
+  },
+  // Gestione SPA routing - fallback a index.html per tutte le route
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
 })
