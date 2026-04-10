@@ -1,7 +1,142 @@
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, ChevronDown } from 'lucide-react'
 import { db } from '@/lib/supabase'
 import toast from 'react-hot-toast'
+
+const DOG_BREEDS = [
+  'Affenpinscher', 'Afghan Hound', 'Airedale Terrier', 'Akita', 'Alano Spagnolo',
+  'Alaskan Malamute', 'American Bulldog', 'American Cocker Spaniel', 'American Staffordshire Terrier',
+  'Aussiedoodle', 'Australian Cattle Dog', 'Australian Shepherd', 'Australian Silky Terrier',
+  'Australian Terrier', 'Azawakh', 'Basenji', 'Basset Hound', 'Beagle', 'Bearded Collie',
+  'Bedlington Terrier', 'Belgian Malinois', 'Belgian Shepherd', 'Bergamasco', 'Bichon Frisé',
+  'Black and Tan Coonhound', 'Bloodhound', 'Blue Heeler', 'Bobtail', 'Bolognese',
+  'Border Collie', 'Border Terrier', 'Borzoi', 'Boston Terrier', 'Bouvier des Flandres',
+  'Boxer', 'Boykin Spaniel', 'Bracco Italiano', 'Braque du Bourbonnais', 'Briard',
+  'Brittany Spaniel', 'Brussels Griffon', 'Bull Mastiff', 'Bull Terrier', 'Bulldog Americano',
+  'Bulldog Francese', 'Bulldog Inglese', 'Cairn Terrier', 'Cane Corso', 'Cane da Pastore Belga',
+  'Cane da Pastore di Brie', 'Cane da Pastore Maremmano Abruzzese', 'Cane di Oropa',
+  'Caniche', 'Cardigan Welsh Corgi', 'Cavalier King Charles Spaniel', 'Chesapeake Bay Retriever',
+  'Chihuahua', 'Chinese Crested', 'Chinese Shar-Pei', 'Chow Chow', 'Cirneco dell'Etna',
+  'Clumber Spaniel', 'Cocker Spaniel', 'Cocker Spaniel Americano', 'Cocker Spaniel Inglese',
+  'Collie', 'Collie a Pelo Lungo', 'Collie a Pelo Corto', 'Curly-Coated Retriever',
+  'Dachshund', 'Dalmata', 'Dandie Dinmont Terrier', 'Dobermann', 'Dogo Argentino',
+  'Dogo de Bordeaux', 'Drahthaar', 'Drever', 'Entlebucher', 'Epagneul Breton',
+  'Eurasier', 'Field Spaniel', 'Fila Brasileiro', 'Finnish Lapphund', 'Finnish Spitz',
+  'Flat-Coated Retriever', 'Fox Terrier', 'Foxhound Americano', 'Foxhound Inglese',
+  'Galgo Spagnolo', 'German Pinscher', 'Goldendoodle', 'Golden Retriever', 'Gordon Setter',
+  'Grand Basset Griffon Vendéen', 'Grande Spitz', 'Great Dane', 'Greyhound',
+  'Griffon Bruxellois', 'Groenendael', 'Hovawart', 'Husky Siberiano', 'Ibizan Hound',
+  'Irish Red and White Setter', 'Irish Setter', 'Irish Terrier', 'Irish Water Spaniel',
+  'Irish Wolfhound', 'Italian Greyhound', 'Jack Russell Terrier', 'Japanese Spitz',
+  'Keeshond', 'Kerry Blue Terrier', 'King Charles Spaniel', 'Komondor', 'Kuvasz',
+  'Labrador Retriever', 'Lagotto Romagnolo', 'Lancashire Heeler', 'Leonberger',
+  'Lhasa Apso', 'Lowchen', 'Maltese', 'Manchester Terrier', 'Maremma Sheepdog',
+  'Mastiff', 'Mastino Napoletano', 'Miniature Bull Terrier', 'Miniature Pinscher',
+  'Miniature Schnauzer', 'Mudi', 'Münsterländer', 'Norfolk Terrier', 'Norwegian Buhund',
+  'Norwegian Elkhound', 'Norwich Terrier', 'Nova Scotia Duck Tolling Retriever',
+  'Old English Sheepdog', 'Otterhound', 'Pastore Australiano', 'Pastore Belga',
+  'Pastore Bergamasco', 'Pastore dei Carpazi', 'Pastore del Caucaso', 'Pastore della Savoia',
+  'Pastore di Groenlandia', 'Pastore Islandese', 'Pastore Maremmano', 'Pastore Scozzese',
+  'Pastore Svizzero Bianco', 'Pastore Tedesco', 'Pechinese', 'Pembroke Welsh Corgi',
+  'Perro de Agua Español', 'Petit Basset Griffon Vendéen', 'Pharaoh Hound', 'Piccolo Brabantino',
+  'Piccolo Levriero Italiano', 'Piccolo Spitz', 'Pit Bull Terrier', 'Plott Hound',
+  'Pointer', 'Pomerania', 'Poodle', 'Porcelaine', 'Portuguese Water Dog', 'Pug',
+  'Puli', 'Pumi', 'Pyrenean Mastiff', 'Pyrenean Mountain Dog', 'Rafeiro do Alentejo',
+  'Rat Terrier', 'Redbone Coonhound', 'Rhodesian Ridgeback', 'Rottweiler', 'Saluki',
+  'Samoiedo', 'Schipperke', 'Schnauzer', 'Schnauzer Gigante', 'Schnauzer Medio',
+  'Scottish Deerhound', 'Scottish Terrier', 'Sealyham Terrier', 'Segugio Italiano',
+  'Setter Gordon', 'Setter Inglese', 'Setter Irlandese', 'Shar Pei', 'Shiba Inu',
+  'Shih Tzu', 'Siberian Husky', 'Skye Terrier', 'Sloughi', 'Soft Coated Wheaten Terrier',
+  'Spagnolo da Ferma Tedesco', 'Spaniel da Acqua Irlandese', 'Spitz Finlandese',
+  'Spitz Giapponese', 'Spitz Italiano', 'Spitz Medio', 'Spitz Nano', 'Spitz Wolfspitz',
+  'Springer Spaniel', 'Staffordshire Bull Terrier', 'Standard Schnauzer',
+  'Sussex Spaniel', 'Tervuren', 'Tibetan Mastiff', 'Tibetan Spaniel', 'Tibetan Terrier',
+  'Toy Fox Terrier', 'Treeing Walker Coonhound', 'Vizsla', 'Volpino Italiano',
+  'Weimaraner', 'Welsh Springer Spaniel', 'Welsh Terrier', 'West Highland White Terrier',
+  'Whippet', 'Wire Fox Terrier', 'Wirehaired Pointing Griffon', 'Xoloitzcuintli',
+  'Yorkshire Terrier',
+].sort()
+
+function BreedSelect({ value, onChange }) {
+  const [query, setQuery] = useState(value || '')
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef(null)
+
+  const filtered = query.length === 0
+    ? DOG_BREEDS
+    : DOG_BREEDS.filter(b => b.toLowerCase().includes(query.toLowerCase()))
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  useEffect(() => {
+    setQuery(value || '')
+  }, [value])
+
+  function handleSelect(breed) {
+    setQuery(breed)
+    onChange(breed)
+    setOpen(false)
+  }
+
+  function handleInputChange(e) {
+    setQuery(e.target.value)
+    onChange(e.target.value)
+    setOpen(true)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={handleInputChange}
+          onFocus={() => setOpen(true)}
+          required
+          className="w-full px-4 py-3 pr-10 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+          placeholder="Cerca razza..."
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          tabIndex={-1}
+        >
+          <ChevronDown className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
+      {open && (
+        <ul className="absolute z-50 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <li className="px-4 py-3 text-sm text-gray-400">Nessuna razza trovata</li>
+          ) : (
+            filtered.map(breed => (
+              <li
+                key={breed}
+                onMouseDown={() => handleSelect(breed)}
+                className={`px-4 py-2 text-sm cursor-pointer hover:bg-primary-50 hover:text-primary-700 transition ${
+                  breed === query ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-700'
+                }`}
+              >
+                {breed}
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 export default function DogForm({ dog, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
@@ -85,14 +220,9 @@ export default function DogForm({ dog, onClose, onSuccess }) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Razza *
                 </label>
-                <input
-                  type="text"
-                  name="breed"
+                <BreedSelect
                   value={formData.breed}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
-                  placeholder="Es: Labrador"
+                  onChange={(val) => setFormData(prev => ({ ...prev, breed: val }))}
                 />
               </div>
 

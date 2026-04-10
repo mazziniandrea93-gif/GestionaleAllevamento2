@@ -135,6 +135,19 @@ const { data } = await supabase.from('dogs').select('*')
 // Restituisce SOLO i cani dell'utente loggato
 ```
 
+### ⚠️ Variabili di Ambiente Pubbliche
+
+**IMPORTANTE**: Le variabili `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` sono **volutamente pubbliche** e visibili nel codice frontend.
+
+✅ **È SICURO!** Ecco perché:
+
+1. **Design Intenzionale**: L'`anon key` di Supabase è progettata per essere esposta pubblicamente
+2. **RLS Protegge i Dati**: La vera sicurezza è nelle Row Level Security policies del database
+3. **Autenticazione JWT**: Solo utenti autenticati possono accedere ai propri dati
+4. **Nessuna API Sensibile Esposta**: Non usiamo la `service_role_key` (che è segreta)
+
+Per maggiori dettagli, leggi: **[SICUREZZA.md](./SICUREZZA.md)**
+
 ---
 
 ## 🎯 Funzionalità Principali
@@ -191,6 +204,8 @@ const { data } = await supabase.from('dogs').select('*')
 ## 📚 File Documentazione
 
 - **README.md** ← Questa guida principale
+- **SICUREZZA.md** ← ⚠️ LEGGI QUI per sicurezza variabili pubbliche
+- **VERIFICA_SICUREZZA_RLS.sql** ← Script verifica sicurezza database
 - **ERRORE_NODE_VECCHIO.md** ← Guida aggiornamento Node.js
 - **ARCHITECTURE.md** ← Architettura sistema
 - **FRONTEND_MULTITENANT_CODE.js** ← Esempi codice
@@ -232,7 +247,13 @@ const { data } = await supabase.from('dogs').select('*')
 4. Aggiungi variabili ambiente:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
+   - ⚠️ **NOTA**: Vercel ti avviserà che queste variabili sono "pubbliche" - è normale e sicuro! Vedi [SICUREZZA.md](./SICUREZZA.md)
 5. **Deploy**!
+
+**Configurazione Vercel:**
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Install Command: `npm install`
 
 ### Netlify
 
