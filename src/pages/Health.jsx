@@ -37,23 +37,29 @@ export default function Health() {
     if (activeTab === 'tutti') return true
     if (activeTab === 'vaccini') return record.record_type === 'vaccinazione'
     if (activeTab === 'visite') return record.record_type === 'visita'
-    if (activeTab === 'farmaci') return record.record_type === 'trattamento'
+    if (activeTab === 'terapie') return record.record_type === 'terapia' || record.record_type === 'trattamento'
     return true
   })
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
   // Calculate stats
   const stats = {
     vacciniScaduti: allRecords.filter(r =>
       r.record_type === 'vaccinazione' &&
       r.next_appointment_date &&
-      new Date(r.next_appointment_date) < new Date()
+      new Date(r.next_appointment_date) < today
     ).length,
     visiteProgrammate: allRecords.filter(r =>
       r.record_type === 'visita' &&
       r.next_appointment_date &&
-      new Date(r.next_appointment_date) >= new Date()
+      new Date(r.next_appointment_date) >= today
     ).length,
-    terapieAttive: allRecords.filter(r => r.record_type === 'trattamento').length,
+    terapieAttive: allRecords.filter(r =>
+      (r.record_type === 'terapia' || r.record_type === 'trattamento') &&
+      (!r.next_appointment_date || new Date(r.next_appointment_date) >= today)
+    ).length,
   }
 
   const handleFormClose = () => {
@@ -107,7 +113,7 @@ export default function Health() {
           { id: 'tutti', label: 'Tutti', icon: HeartIcon },
           { id: 'vaccini', label: 'Vaccini', icon: Syringe },
           { id: 'visite', label: 'Visite', icon: Activity },
-          { id: 'farmaci', label: 'Farmaci', icon: Pill },
+          { id: 'terapie', label: 'Terapie', icon: Pill },
         ].map((tab) => (
           <button
             key={tab.id}

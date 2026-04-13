@@ -457,6 +457,18 @@ export const db = {
     return data
   },
 
+  async updateHealthRecord(id, updates) {
+    const { data, error } = await supabase
+      .from('health_records')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
   async deleteHealthRecord(id) {
     const { error } = await supabase
       .from('health_records')
