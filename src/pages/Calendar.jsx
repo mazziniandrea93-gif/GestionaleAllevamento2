@@ -13,6 +13,8 @@ export default function Calendar() {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState(null)
+  const [selectedDateForForm, setSelectedDateForForm] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null) // { message, onConfirm }
   const queryClient = useQueryClient()
 
   // Fetch all events
@@ -44,9 +46,9 @@ export default function Calendar() {
   }
 
   const handleDayClick = (day, events) => {
-    if (events.length > 0) {
-      setSelectedDay(day)
-    }
+    setEditingEvent(null)
+    setSelectedDateForForm(day)
+    setIsFormOpen(true)
   }
 
   const handleEventClick = (event, e) => {
@@ -62,6 +64,7 @@ export default function Calendar() {
   const handleFormClose = () => {
     setIsFormOpen(false)
     setEditingEvent(null)
+    setSelectedDateForForm(null)
   }
 
   const handleFormSuccess = () => {
@@ -76,41 +79,59 @@ export default function Calendar() {
     setSelectedEvent(null)
   }
 
-  const handleDelete = async (event) => {
-    if (!confirm(`Sei sicuro di voler eliminare l'evento?\n\n"${event.title}"`)) return
-
-    try {
-      await db.deleteEvent(event.id)
-      toast.success('Evento eliminato con successo')
-      queryClient.invalidateQueries(['events'])
-      handleCloseModal()
-    } catch (error) {
-      console.error('Error deleting event:', error)
-      toast.error('Errore durante l\'eliminazione')
-    }
+  const handleDelete = (event) => {
+    setConfirmDialog({
+      message: `Eliminare l'evento "${event.title}"?`,
+      onConfirm: async () => {
+        try {
+          await db.deleteEvent(event.id)
+          toast.success('Evento eliminato')
+          queryClient.invalidateQueries(['events'])
+          handleCloseModal()
+        } catch (error) {
+          console.error('Error deleting event:', error)
+          toast.error('Errore durante l\'eliminazione')
+        } finally {
+          setConfirmDialog(null)
+        }
+      },
+    })
   }
 
-  const handleToggleComplete = async (event) => {
+  const handleToggleComplete = async (event, closeAfter = false) => {
     try {
       await db.updateEvent(event.id, { completed: !event.completed })
-      toast.success(event.completed ? 'Evento segnato come non completato' : 'Evento completato!')
+      toast.success(event.completed ? 'Segnato come non completato' : 'Evento completato!')
       queryClient.invalidateQueries(['events'])
+      if (closeAfter) handleCloseModal()
     } catch (error) {
       console.error('Error updating event:', error)
       toast.error('Errore durante l\'aggiornamento')
     }
   }
 
-  const getCategoryColor = (category) => {
+  const getCategoryColor = (eventType) => {
     const colors = {
-      vaccino: 'bg-blue-500',
-      visita: 'bg-green-500',
+      veterinario: 'bg-blue-500',
       toelettatura: 'bg-purple-500',
-      addestramento: 'bg-orange-500',
       esposizione: 'bg-pink-500',
-      altro: 'bg-gray-500'
+      calore_stimato: 'bg-red-400',
+      parto_stimato: 'bg-orange-500',
+      altro: 'bg-gray-500',
     }
-    return colors[category] || 'bg-gray-500'
+    return colors[eventType] || 'bg-gray-500'
+  }
+
+  const getCategoryLabel = (eventType) => {
+    const labels = {
+      veterinario: 'Veterinario',
+      toelettatura: 'Toelettatura',
+      esposizione: 'Esposizione',
+      calore_stimato: 'Calore Stimato',
+      parto_stimato: 'Parto Stimato',
+      altro: 'Altro',
+    }
+    return labels[eventType] || eventType
   }
 
   return (
@@ -198,7 +219,7 @@ export default function Calendar() {
                         onClick={(e) => handleEventClick(event, e)}
                         className={`
                           text-xs px-2 py-1 rounded-lg font-medium truncate
-                          ${getCategoryColor(event.category)} text-white
+                          ${getCategoryColor(event.event_type)} text-white
                           hover:scale-105 transition cursor-pointer
                           ${event.completed ? 'opacity-60 line-through' : ''}
                         `}
@@ -225,15 +246,15 @@ export default function Calendar() {
         <h3 className="text-lg font-bold text-gray-900 mb-4">Legenda Categorie</h3>
         <div className="flex flex-wrap gap-4">
           {[
-            { category: 'vaccino', label: 'Vaccino' },
-            { category: 'visita', label: 'Visita' },
-            { category: 'toelettatura', label: 'Toelettatura' },
-            { category: 'addestramento', label: 'Addestramento' },
-            { category: 'esposizione', label: 'Esposizione' },
-            { category: 'altro', label: 'Altro' }
-          ].map(({ category, label }) => (
-            <div key={category} className="flex items-center gap-2">
-              <div className={`w-4 h-4 rounded ${getCategoryColor(category)}`}></div>
+            { type: 'veterinario', label: 'Veterinario' },
+            { type: 'toelettatura', label: 'Toelettatura' },
+            { type: 'esposizione', label: 'Esposizione' },
+            { type: 'calore_stimato', label: 'Calore Stimato' },
+            { type: 'parto_stimato', label: 'Parto Stimato' },
+            { type: 'altro', label: 'Altro' },
+          ].map(({ type, label }) => (
+            <div key={type} className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded ${getCategoryColor(type)}`}></div>
               <span className="text-sm text-gray-600">{label}</span>
             </div>
           ))}
@@ -267,14 +288,14 @@ export default function Calendar() {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-3 h-3 rounded-full ${getCategoryColor(event.category)}`}></div>
+                        <div className={`w-3 h-3 rounded-full ${getCategoryColor(event.event_type)}`}></div>
                         <h4 className={`text-lg font-bold text-gray-900 ${event.completed ? 'line-through' : ''}`}>
                           {event.title}
                         </h4>
                       </div>
-                      {event.dog?.name && (
+                      {event.dogs?.length > 0 && (
                         <p className="text-sm text-gray-600 mb-2">
-                          🐕 {event.dog.name}
+                          🐕 {event.dogs.map(d => d.name).join(', ')}
                         </p>
                       )}
                       {event.description && (
@@ -292,14 +313,17 @@ export default function Calendar() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleToggleComplete(event)}
-                        className={`p-2 rounded-xl transition ${
+                        className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-bold transition ${
                           event.completed
-                            ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                            : 'text-green-600 hover:bg-green-50'
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                         }`}
                         title={event.completed ? 'Segna come non completato' : 'Segna come completato'}
                       >
-                        {event.completed ? <Circle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                        {event.completed
+                          ? <><CheckCircle className="w-4 h-4" /> Completato</>
+                          : <Circle className="w-4 h-4" />
+                        }
                       </button>
                       <button
                         onClick={() => handleEdit(event)}
@@ -355,17 +379,23 @@ export default function Calendar() {
               <div>
                 <div className="text-sm font-bold text-gray-500 mb-2">Categoria</div>
                 <div className="flex items-center gap-2">
-                  <div className={`w-4 h-4 rounded-full ${getCategoryColor(selectedEvent.category)}`}></div>
-                  <span className="capitalize font-medium">{selectedEvent.category}</span>
+                  <div className={`w-4 h-4 rounded-full ${getCategoryColor(selectedEvent.event_type)}`}></div>
+                  <span className="font-medium">{getCategoryLabel(selectedEvent.event_type)}</span>
                 </div>
               </div>
 
-              {/* Dog */}
-              {selectedEvent.dog?.name && (
+              {/* Cani */}
+              {selectedEvent.dogs?.length > 0 && (
                 <div>
-                  <div className="text-sm font-bold text-gray-500 mb-2">Cane</div>
-                  <div className="text-lg font-bold text-gray-900">
-                    🐕 {selectedEvent.dog.name}
+                  <div className="text-sm font-bold text-gray-500 mb-2">
+                    {selectedEvent.dogs.length > 1 ? 'Cani' : 'Cane'}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedEvent.dogs.map(dog => (
+                      <span key={dog.id} className="text-base font-bold text-gray-900">
+                        🐕 {dog.name}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
@@ -403,14 +433,15 @@ export default function Calendar() {
               {/* Actions */}
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
-                  onClick={() => handleToggleComplete(selectedEvent)}
-                  className={`flex-1 px-6 py-3 rounded-2xl font-bold transition ${
+                  onClick={() => handleToggleComplete(selectedEvent, true)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold transition ${
                     selectedEvent.completed
-                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       : 'bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/30'
                   }`}
                 >
-                  {selectedEvent.completed ? 'Segna Non Completato' : 'Segna Completato'}
+                  <CheckCircle className="w-5 h-5" />
+                  Completato
                 </button>
                 <button
                   onClick={() => handleEdit(selectedEvent)}
@@ -434,9 +465,39 @@ export default function Calendar() {
       {isFormOpen && (
         <EventForm
           event={editingEvent}
+          selectedDate={selectedDateForForm}
           onClose={handleFormClose}
           onSuccess={handleFormSuccess}
         />
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 space-y-6">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="w-7 h-7 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900">Elimina evento</h3>
+              <p className="text-gray-500 text-sm">{confirmDialog.message}</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="flex-1 px-4 py-3 rounded-2xl border-2 border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={confirmDialog.onConfirm}
+                className="flex-1 px-4 py-3 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition shadow-lg shadow-red-500/30"
+              >
+                Elimina
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

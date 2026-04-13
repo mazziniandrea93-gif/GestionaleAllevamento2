@@ -183,12 +183,14 @@ export default function Settings() {
     }
   }
 
+  const { isPrivate } = useAuth()
+
   const tabs = [
     { id: 'profilo', label: 'Profilo', icon: User },
-    { id: 'allevamento', label: 'Allevamento', icon: Building },
+    !isPrivate && { id: 'allevamento', label: 'Allevamento', icon: Building },
     { id: 'notifiche', label: 'Notifiche', icon: Bell },
     { id: 'sicurezza', label: 'Sicurezza', icon: Lock },
-  ]
+  ].filter(Boolean)
 
   return (
     <div className="space-y-6">

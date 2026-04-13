@@ -36,10 +36,13 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  const isPrivate = user?.user_metadata?.account_type === 'privato'
+
   const value = {
     user,
     loading,
-    signOut
+    signOut,
+    isPrivate,
   }
 
   return (

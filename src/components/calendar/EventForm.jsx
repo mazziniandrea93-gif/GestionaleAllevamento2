@@ -1,27 +1,49 @@
-import { useState } from 'react'
-import { X, Calendar, Stethoscope, Scissors, Trophy, Heart, AlertCircle } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { X, Calendar, Stethoscope, Scissors, Trophy, Heart, AlertCircle, Search } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
+function toLocalDateString(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
+  const [dogSearch, setDogSearch] = useState('')
+  const overlayRef = useRef(null)
+
+  // Separa data e ora se l'evento esistente ha un timestamp
+  const existingDate = event?.event_date
+    ? event.event_date.split('T')[0]
+    : (selectedDate ? toLocalDateString(selectedDate) : toLocalDateString(new Date()))
+  const existingTime = event?.event_date?.includes('T')
+    ? event.event_date.split('T')[1]?.slice(0, 5)
+    : ''
+
   const [formData, setFormData] = useState({
-    dog_id: event?.dog_id || '',
+    dog_ids: event?.dog_ids || [],
     event_type: event?.event_type || 'veterinario',
     title: event?.title || '',
     description: event?.description || '',
-    event_date: event?.event_date || (selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+    event_date: existingDate,
+    event_time: existingTime,
     completed: event?.completed || false,
     reminder_days: event?.reminder_days || 3,
-    notes: event?.notes || '',
   })
 
-  // Fetch dogs per il dropdown
   const { data: dogs = [] } = useQuery({
     queryKey: ['dogs'],
     queryFn: () => db.getDogs(),
   })
+
+  const filteredDogs = dogs.filter(dog =>
+    dog.name.toLowerCase().includes(dogSearch.toLowerCase()) ||
+    (dog.breed && dog.breed.toLowerCase().includes(dogSearch.toLowerCase()))
+  )
 
   const eventTypes = [
     { value: 'veterinario', label: 'Veterinario', icon: Stethoscope, color: 'blue' },
@@ -37,15 +59,18 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
     setLoading(true)
 
     try {
+      const eventDatetime = formData.event_time
+        ? `${formData.event_date}T${formData.event_time}:00`
+        : formData.event_date
+
       const dataToSubmit = {
-        dog_id: formData.dog_id || null,
+        dog_ids: formData.dog_ids,
         event_type: formData.event_type,
         title: formData.title,
         description: formData.description || null,
-        event_date: formData.event_date,
+        event_date: eventDatetime,
         completed: formData.completed,
         reminder_days: parseInt(formData.reminder_days),
-        notes: formData.notes || null,
       }
 
       if (event?.id) {
@@ -65,6 +90,15 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
     }
   }
 
+  const toggleDog = (dogId) => {
+    setFormData(prev => ({
+      ...prev,
+      dog_ids: prev.dog_ids.includes(dogId)
+        ? prev.dog_ids.filter(id => id !== dogId)
+        : [...prev.dog_ids, dogId],
+    }))
+  }
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     setFormData(prev => ({
@@ -73,22 +107,37 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
     }))
   }
 
+  const handleOverlayClick = (e) => {
+    if (e.target === overlayRef.current) onClose()
+  }
+
+  const colorClasses = {
+    blue: 'bg-blue-500',
+    purple: 'bg-purple-500',
+    yellow: 'bg-yellow-500',
+    pink: 'bg-pink-500',
+    orange: 'bg-orange-500',
+    gray: 'bg-gray-500'
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div
+      ref={overlayRef}
+      onClick={handleOverlayClick}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    >
       <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-3xl">
           <h3 className="text-2xl font-black text-dark-900">
             {event ? 'Modifica Evento' : 'Nuovo Evento'}
           </h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
             <X className="w-6 h-6" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+
           {/* Tipo Evento */}
           <div className="space-y-4">
             <h4 className="font-bold text-lg text-gray-900">Tipo di Evento</h4>
@@ -96,14 +145,6 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
               {eventTypes.map((type) => {
                 const Icon = type.icon
                 const isSelected = formData.event_type === type.value
-                const colorClasses = {
-                  blue: 'bg-blue-500',
-                  purple: 'bg-purple-500',
-                  yellow: 'bg-yellow-500',
-                  pink: 'bg-pink-500',
-                  orange: 'bg-orange-500',
-                  gray: 'bg-gray-500'
-                }
                 return (
                   <button
                     key={type.value}
@@ -128,10 +169,10 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
             <h4 className="font-bold text-lg text-gray-900">Informazioni</h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* Titolo */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Titolo *
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Titolo *</label>
                 <input
                   type="text"
                   name="title"
@@ -143,29 +184,9 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
                 />
               </div>
 
+              {/* Data */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Cane (opzionale)
-                </label>
-                <select
-                  name="dog_id"
-                  value={formData.dog_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
-                >
-                  <option value="">Nessun cane specifico</option>
-                  {dogs.map((dog) => (
-                    <option key={dog.id} value={dog.id}>
-                      {dog.name} - {dog.breed}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Data Evento *
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Data Evento *</label>
                 <input
                   type="date"
                   name="event_date"
@@ -176,10 +197,21 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
                 />
               </div>
 
+              {/* Ora */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Giorni promemoria
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Ora (opzionale)</label>
+                <input
+                  type="time"
+                  name="event_time"
+                  value={formData.event_time}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                />
+              </div>
+
+              {/* Promemoria */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Giorni promemoria</label>
                 <input
                   type="number"
                   name="reminder_days"
@@ -189,11 +221,10 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
                   max="30"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Giorni prima dell'evento per il promemoria
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Giorni prima dell'evento per il promemoria</p>
               </div>
 
+              {/* Completato */}
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -209,10 +240,67 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
               </div>
             </div>
 
+            {/* Selezione cani con ricerca - multi-selezione */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Descrizione
+                Cani (opzionale)
+                {formData.dog_ids.length > 0 && (
+                  <span className="ml-2 text-primary-600 font-bold">{formData.dog_ids.length} selezionati</span>
+                )}
               </label>
+
+              {dogs.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">Nessun cane registrato</p>
+              ) : (
+                <>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={dogSearch}
+                      onChange={(e) => setDogSearch(e.target.value)}
+                      placeholder="Cerca cane..."
+                      className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition text-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {filteredDogs.map((dog) => {
+                      const isChecked = formData.dog_ids.includes(dog.id)
+                      return (
+                        <label
+                          key={dog.id}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition ${
+                            isChecked
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleDog(dog.id)}
+                            className="w-4 h-4 rounded text-primary-500 focus:ring-primary-200"
+                          />
+                          <span className="text-sm font-medium">
+                            {dog.name}
+                            {dog.breed && <span className="text-xs text-gray-400 block">{dog.breed}</span>}
+                          </span>
+                        </label>
+                      )
+                    })}
+
+                    {filteredDogs.length === 0 && dogSearch && (
+                      <p className="text-sm text-gray-400 italic col-span-full px-1">Nessun risultato per "{dogSearch}"</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Descrizione */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Descrizione</label>
               <textarea
                 name="description"
                 value={formData.description}
@@ -223,19 +311,6 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Note
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows="3"
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition resize-none"
-                placeholder="Note aggiuntive..."
-              />
-            </div>
           </div>
 
           {/* Buttons */}
@@ -260,4 +335,3 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
     </div>
   )
 }
-

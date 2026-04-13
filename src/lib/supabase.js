@@ -47,25 +47,34 @@ export const db = {
 
   async createDog(dog) {
     const userId = await getCurrentUserId()
+    const payload = { ...dog, user_id: userId }
+    if (!payload.microchip) payload.microchip = null
+    if (payload.weight === '' || payload.weight === undefined) payload.weight = null
+    if (payload.height === '' || payload.height === undefined) payload.height = null
 
     const { data, error } = await supabase
       .from('dogs')
-      .insert([{ ...dog, user_id: userId }])
+      .insert([payload])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
 
   async updateDog(id, updates) {
+    const payload = { ...updates }
+    if (!payload.microchip) payload.microchip = null
+    if (payload.weight === '' || payload.weight === undefined) payload.weight = null
+    if (payload.height === '' || payload.height === undefined) payload.height = null
+
     const { data, error } = await supabase
       .from('dogs')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
@@ -251,36 +260,49 @@ export const db = {
   async getEvents(filters = {}) {
     let query = supabase
       .from('events')
-      .select(`
-        *,
-        dog:dogs(name)
-      `)
+      .select('*')
       .order('event_date')
-    
+
     if (filters.upcoming) {
       query = query
         .gte('event_date', new Date().toISOString().split('T')[0])
         .eq('completed', false)
     }
-    
+
     if (filters.dogId) {
-      query = query.eq('dog_id', filters.dogId)
+      query = query.contains('dog_ids', [filters.dogId])
     }
-    
-    const { data, error } = await query
+
+    const { data: events, error } = await query
     if (error) throw error
-    return data
+
+    // Arricchisce ogni evento con i dati dei cani da dog_ids
+    const allDogIds = [...new Set(events.flatMap(e => e.dog_ids || []))]
+    let dogsMap = {}
+    if (allDogIds.length > 0) {
+      const { data: dogs } = await supabase
+        .from('dogs')
+        .select('id, name, breed')
+        .in('id', allDogIds)
+      dogs?.forEach(d => { dogsMap[d.id] = d })
+    }
+
+    return events.map(e => ({
+      ...e,
+      dogs: (e.dog_ids || []).map(id => dogsMap[id]).filter(Boolean),
+    }))
   },
 
   async createEvent(event) {
     const userId = await getCurrentUserId()
+    const { dog_ids = [], ...rest } = event
 
     const { data, error } = await supabase
       .from('events')
-      .insert([{ ...event, user_id: userId }])
+      .insert([{ ...rest, dog_ids, user_id: userId }])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
@@ -292,7 +314,7 @@ export const db = {
       .eq('id', id)
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },

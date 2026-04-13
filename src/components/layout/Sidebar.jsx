@@ -1,28 +1,28 @@
 import { NavLink } from 'react-router-dom'
-import { 
-  LayoutDashboard, 
-  Dog, 
-  Calendar, 
+import {
+  LayoutDashboard,
+  Dog,
+  Calendar,
   Heart,
   Baby,
   Euro,
   TrendingUp,
-  Settings,
-  LogOut
 } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
-const navigation = [
+const allNavigation = [
   { name: 'Dashboard', to: '/', icon: LayoutDashboard },
   { name: 'I Miei Cani', to: '/dogs', icon: Dog },
-  { name: 'Riproduzione', to: '/breeding', icon: Heart },
-  { name: 'Cuccioli', to: '/puppies', icon: Baby },
+  { name: 'Riproduzione', to: '/breeding', icon: Heart, breedingOnly: true },
+  { name: 'Cuccioli', to: '/puppies', icon: Baby, breedingOnly: true },
   { name: 'Finanze', to: '/finance', icon: Euro },
   { name: 'Salute', to: '/health', icon: TrendingUp },
   { name: 'Calendario', to: '/calendar', icon: Calendar },
-  { name: 'Impostazioni', to: '/settings', icon: Settings },
 ]
 
 export default function Sidebar() {
+  const { isPrivate } = useAuth()
+  const navigation = allNavigation.filter(item => !isPrivate || !item.breedingOnly)
   return (
     <aside className="w-64 bg-dark-900 text-white hidden md:flex flex-col p-6">
       {/* Logo */}
@@ -66,10 +66,6 @@ export default function Sidebar() {
           </div>
         </div>
         
-        <button className="flex items-center space-x-3 p-3 w-full text-gray-400 hover:text-white transition rounded-2xl hover:bg-white/10">
-          <LogOut className="w-4 h-4" />
-          <span className="text-sm">Logout</span>
-        </button>
       </div>
     </aside>
   )
