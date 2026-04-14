@@ -56,6 +56,26 @@ export default function TransactionCard({ transaction, type, onEdit, onDelete })
               {isIncome ? '+' : '-'}€{parseFloat(transaction.amount).toFixed(2)}
             </p>
           </div>
+          <div className="flex gap-1 ml-2">
+            {onEdit && (
+              <button
+                onClick={() => onEdit(transaction)}
+                className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition"
+                title="Modifica"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(transaction)}
+                className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition"
+                title="Elimina"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

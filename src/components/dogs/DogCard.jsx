@@ -34,7 +34,7 @@ export default function DogCard({ dog, onUpdate }) {
       className="bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer group border-2 border-transparent hover:border-primary-200"
     >
       {/* Image */}
-      <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+      <div className="relative h-48 overflow-hidden" style={{ background: dog.color ? `linear-gradient(135deg, ${dog.color}cc, ${dog.color})` : 'linear-gradient(135deg, #e5e7eb, #d1d5db)' }}>
         {dog.photo_url ? (
           <img
             src={dog.photo_url}
@@ -48,8 +48,20 @@ export default function DogCard({ dog, onUpdate }) {
         )}
         
         {/* Gender Badge */}
-        <div className={`absolute top-3 left-3 w-10 h-10 ${genderColors[dog.gender]} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
-          {dog.gender === 'maschio' ? '♂' : '♀'}
+        <div className={`absolute top-3 left-3 w-10 h-10 ${genderColors[dog.gender]} rounded-full flex items-center justify-center shadow-lg`}>
+          {dog.gender === 'maschio' ? (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="10" cy="14" r="5" />
+              <line x1="19" y1="5" x2="14.14" y2="9.86" />
+              <polyline points="15 5 19 5 19 9" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="9" r="5" />
+              <line x1="12" y1="14" x2="12" y2="21" />
+              <line x1="9" y1="18" x2="15" y2="18" />
+            </svg>
+          )}
         </div>
 
         {/* Status Badge */}
@@ -60,7 +72,15 @@ export default function DogCard({ dog, onUpdate }) {
 
       {/* Content */}
       <div className="p-6">
-        <h3 className="text-xl font-black text-dark-900 mb-1">{dog.name}</h3>
+        <div className="flex items-center gap-2 mb-1">
+          {dog.color && (
+            <div
+              className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-white shadow"
+              style={{ backgroundColor: dog.color }}
+            />
+          )}
+          <h3 className="text-xl font-black text-dark-900 leading-tight">{dog.name}</h3>
+        </div>
         <p className="text-sm text-gray-500 font-semibold mb-4">{dog.breed}</p>
 
         {/* Info Grid */}
@@ -69,20 +89,11 @@ export default function DogCard({ dog, onUpdate }) {
             <Calendar className="w-4 h-4 mr-2 text-primary-500" />
             <span className="font-medium">{calculateAge(dog.birth_date)}</span>
           </div>
-          
+
           {dog.microchip && (
             <div className="flex items-center text-xs text-gray-600">
               <Award className="w-4 h-4 mr-2 text-primary-500" />
               <span className="font-mono">{dog.microchip}</span>
-            </div>
-          )}
-
-          {dog.color && (
-            <div className="flex items-center text-xs text-gray-600">
-              <div className="w-4 h-4 mr-2 rounded-full border-2 border-primary-500 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-primary-500"></div>
-              </div>
-              <span>{dog.color}</span>
             </div>
           )}
         </div>
@@ -111,8 +122,11 @@ export default function DogCard({ dog, onUpdate }) {
         )}
       </div>
 
-      {/* Hover Effect */}
-      <div className="h-1 bg-gradient-to-r from-primary-400 to-primary-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+      {/* Bottom color bar */}
+      <div
+        className="h-1.5 opacity-60 group-hover:opacity-100 transition-opacity duration-300"
+        style={{ background: dog.color ? `linear-gradient(to right, ${dog.color}88, ${dog.color})` : 'linear-gradient(to right, #a78bfa, #7c3aed)' }}
+      />
     </div>
   )
 }

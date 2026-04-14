@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
 import TransactionForm from '@/components/finance/TransactionForm'
 import TransactionCard from '@/components/finance/TransactionCard'
+import toast from 'react-hot-toast'
 
 export default function Finance() {
   const [filter, setFilter] = useState('tutti')
@@ -71,6 +72,30 @@ export default function Finance() {
     handleFormClose()
     queryClient.invalidateQueries(['income'])
     queryClient.invalidateQueries(['expenses'])
+  }
+
+  const handleEdit = (transaction) => {
+    setSelectedTransaction(transaction)
+    setIsFormOpen(true)
+  }
+
+  const handleDelete = async (transaction) => {
+    const isIncome = transaction.type === 'income'
+    const label = isIncome ? 'entrata' : 'spesa'
+    if (!window.confirm(`Sei sicuro di voler eliminare questa ${label}?`)) return
+
+    try {
+      if (isIncome) {
+        await db.deleteIncome(transaction.id)
+      } else {
+        await db.deleteExpense(transaction.id)
+      }
+      toast.success(`${label.charAt(0).toUpperCase() + label.slice(1)} eliminata con successo`)
+      queryClient.invalidateQueries(['income'])
+      queryClient.invalidateQueries(['expenses'])
+    } catch (error) {
+      toast.error(error.message || 'Errore durante l\'eliminazione')
+    }
   }
 
   const goToPreviousYear = () => {
@@ -214,6 +239,8 @@ export default function Finance() {
               key={`${transaction.type}-${transaction.id}`}
               transaction={transaction}
               type={transaction.type}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
             />
           ))}
         </div>

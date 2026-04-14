@@ -138,6 +138,25 @@ function BreedSelect({ value, onChange }) {
   )
 }
 
+const DOG_COLORS = [
+  { hex: '#ef4444', label: 'Rosso'     },
+  { hex: '#f43f5e', label: 'Cremisi'   },
+  { hex: '#f97316', label: 'Arancione' },
+  { hex: '#f59e0b', label: 'Ambra'     },
+  { hex: '#eab308', label: 'Giallo'    },
+  { hex: '#84cc16', label: 'Lime'      },
+  { hex: '#22c55e', label: 'Verde'     },
+  { hex: '#10b981', label: 'Smeraldo'  },
+  { hex: '#14b8a6', label: 'Teal'      },
+  { hex: '#06b6d4', label: 'Ciano'     },
+  { hex: '#3b82f6', label: 'Blu'       },
+  { hex: '#6366f1', label: 'Indaco'    },
+  { hex: '#8b5cf6', label: 'Viola'     },
+  { hex: '#a855f7', label: 'Porpora'   },
+  { hex: '#ec4899', label: 'Rosa'      },
+  { hex: '#64748b', label: 'Ardesia'   },
+]
+
 export default function DogForm({ dog, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -148,7 +167,7 @@ export default function DogForm({ dog, onClose, onSuccess }) {
     microchip: dog?.microchip || '',
     pedigree_number: dog?.pedigree_number || '',
     status: dog?.status || 'attivo',
-    color: dog?.color || '',
+    color: dog?.color || DOG_COLORS[0].hex,
     coat_color: dog?.coat_color || '',
     weight: dog?.weight || '',
     height: dog?.height || '',
@@ -197,6 +216,7 @@ export default function DogForm({ dog, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+
           <div className="space-y-4">
             <h4 className="font-bold text-lg text-gray-900">Informazioni Base</h4>
 
@@ -375,7 +395,37 @@ export default function DogForm({ dog, onClose, onSuccess }) {
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          {/* Colore identificativo */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-xl shadow-md flex-shrink-0 transition-colors duration-200"
+                style={{ backgroundColor: formData.color }}
+              />
+              <div>
+                <h4 className="font-bold text-lg text-gray-900">Colore Identificativo</h4>
+                <p className="text-xs text-gray-500">Usato per distinguere visivamente il cane</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {DOG_COLORS.map(({ hex, label }) => (
+                <button
+                  key={hex}
+                  type="button"
+                  title={label}
+                  onClick={() => setFormData(prev => ({ ...prev, color: hex }))}
+                  className="flex-1 h-8 rounded-lg transition-transform hover:scale-110 focus:outline-none"
+                  style={{
+                    backgroundColor: hex,
+                    outline: formData.color === hex ? `3px solid ${hex}` : 'none',
+                    outlineOffset: '2px',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}

@@ -153,9 +153,30 @@ export const db = {
       .insert([{ ...expense, user_id: userId }])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
+  },
+
+  async updateExpense(id, updates) {
+    const { data, error } = await supabase
+      .from('expenses')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteExpense(id) {
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
   },
 
   // INCOME
@@ -188,9 +209,30 @@ export const db = {
       .insert([income])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
+  },
+
+  async updateIncome(id, updates) {
+    const { data, error } = await supabase
+      .from('income')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteIncome(id) {
+    const { error } = await supabase
+      .from('income')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
   },
 
   // PUPPIES
@@ -282,7 +324,7 @@ export const db = {
     if (allDogIds.length > 0) {
       const { data: dogs } = await supabase
         .from('dogs')
-        .select('id, name, breed')
+        .select('id, name, breed, color')
         .in('id', allDogIds)
       dogs?.forEach(d => { dogsMap[d.id] = d })
     }

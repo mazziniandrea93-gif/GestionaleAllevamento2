@@ -218,14 +218,27 @@ export default function Calendar() {
                         key={event.id}
                         onClick={(e) => handleEventClick(event, e)}
                         className={`
-                          text-xs px-2 py-1 rounded-lg font-medium truncate
+                          text-xs px-2 py-1 rounded-lg font-medium
+                          flex items-center justify-between gap-1
                           ${getCategoryColor(event.event_type)} text-white
                           hover:scale-105 transition cursor-pointer
                           ${event.completed ? 'opacity-60 line-through' : ''}
                         `}
                         title={event.title}
                       >
-                        {event.title}
+                        <span className="truncate min-w-0">{event.title}</span>
+                        {event.dogs?.length > 0 && (
+                          <span className="flex items-center flex-shrink-0" style={{ marginLeft: '2px' }}>
+                            {event.dogs.slice(0, 3).map((dog, i) => (
+                              <span
+                                key={dog.id}
+                                className="w-3.5 h-3.5 rounded-full border border-white block"
+                                style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-4px' : '0' }}
+                                title={dog.name}
+                              />
+                            ))}
+                          </span>
+                        )}
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
@@ -294,9 +307,21 @@ export default function Calendar() {
                         </h4>
                       </div>
                       {event.dogs?.length > 0 && (
-                        <p className="text-sm text-gray-600 mb-2">
-                          🐕 {event.dogs.map(d => d.name).join(', ')}
-                        </p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center">
+                            {event.dogs.map((dog, i) => (
+                              <div
+                                key={dog.id}
+                                className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                                style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-6px' : '0' }}
+                                title={dog.name}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-sm text-gray-600 font-semibold">
+                            {event.dogs.map(d => d.name).join(', ')}
+                          </span>
+                        </div>
                       )}
                       {event.description && (
                         <p className="text-sm text-gray-600 mb-2">
@@ -387,14 +412,18 @@ export default function Calendar() {
               {/* Cani */}
               {selectedEvent.dogs?.length > 0 && (
                 <div>
-                  <div className="text-sm font-bold text-gray-500 mb-2">
+                  <div className="text-sm font-bold text-gray-500 mb-3">
                     {selectedEvent.dogs.length > 1 ? 'Cani' : 'Cane'}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-3">
                     {selectedEvent.dogs.map(dog => (
-                      <span key={dog.id} className="text-base font-bold text-gray-900">
-                        🐕 {dog.name}
-                      </span>
+                      <div key={dog.id} className="flex items-center gap-2">
+                        <div
+                          className="w-7 h-7 rounded-full border-2 border-white shadow-md flex-shrink-0"
+                          style={{ backgroundColor: dog.color || '#94a3b8' }}
+                        />
+                        <span className="font-bold text-gray-900">{dog.name}</span>
+                      </div>
                     ))}
                   </div>
                 </div>

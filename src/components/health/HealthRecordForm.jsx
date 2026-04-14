@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Syringe, Activity, Scissors, FileText, Pill, HelpCircle, Plus, Trash2 } from 'lucide-react'
+import { X, Syringe, Activity, Scissors, FileText, Pill, HelpCircle, Plus, Trash2, Search } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
 import toast from 'react-hot-toast'
@@ -50,12 +50,13 @@ function calcEndDate(startDate, fasi) {
 
 export default function HealthRecordForm({ record, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
+  const [dogSearch, setDogSearch] = useState('')
 
   const isTerapiaRecord = record?.record_type === 'terapia' || record?.record_type === 'trattamento'
   const parsedNotes = isTerapiaRecord ? parseTherapyNotes(record?.notes) : { fasi: [{ ...DEFAULT_FASE }], extra: '' }
 
   const [formData, setFormData] = useState({
-    dog_id: record?.dog_id || '',
+    dog_ids: record?.dog_id ? [record.dog_id] : [],
     record_type: (record?.record_type === 'trattamento' ? 'terapia' : record?.record_type) || 'vaccinazione',
     description: record?.description || '',
     record_date: record?.record_date || new Date().toISOString().split('T')[0],
@@ -71,6 +72,20 @@ export default function HealthRecordForm({ record, onClose, onSuccess }) {
     queryKey: ['dogs'],
     queryFn: () => db.getDogs(),
   })
+
+  const filteredDogs = dogs.filter(dog =>
+    dog.name.toLowerCase().includes(dogSearch.toLowerCase()) ||
+    (dog.breed && dog.breed.toLowerCase().includes(dogSearch.toLowerCase()))
+  )
+
+  const toggleDog = (dogId) => {
+    setFormData(prev => ({
+      ...prev,
+      dog_ids: prev.dog_ids.includes(dogId)
+        ? prev.dog_ids.filter(id => id !== dogId)
+        : [...prev.dog_ids, dogId],
+    }))
+  }
 
   const recordTypes = [
     { value: 'vaccinazione', label: 'Vaccinazione', icon: Syringe, color: '#3b82f6' },
@@ -107,6 +122,10 @@ export default function HealthRecordForm({ record, onClose, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (formData.dog_ids.length === 0) {
+      toast.error('Seleziona almeno un cane')
+      return
+    }
     setLoading(true)
 
     try {
@@ -114,73 +133,170 @@ export default function HealthRecordForm({ record, onClose, onSuccess }) {
         ? buildTherapyNotes(fasi, formData.extra_notes)
         : formData.extra_notes || null
 
-      // Per terapia usa la data calcolata automaticamente (se disponibile) o quella manuale
       const endDate = isTer
         ? (autoEndDate || formData.next_appointment_date || null)
         : formData.next_appointment_date || null
 
-      const dataToSubmit = {
-        dog_id: formData.dog_id,
-        record_type: formData.record_type,
-        description: formData.description,
-        record_date: formData.record_date,
-        veterinarian: formData.veterinarian || null,
-        cost: formData.cost ? parseFloat(formData.cost) : null,
-        next_appointment_date: endDate,
-        notes: notesValue,
-      }
+      const cost = formData.cost ? parseFloat(formData.cost) : null
+      const dbRecordType = formData.record_type === 'terapia' ? 'trattamento' : formData.record_type
+      const expenseLabels = { vaccinazione: 'Vaccino', visita: 'Visita', intervento: 'Intervento', esame: 'Esame', terapia: 'Terapia', altro: 'Spesa sanitaria' }
 
-      let savedRecord
       if (record?.id) {
-        savedRecord = await db.updateHealthRecord(record.id, dataToSubmit)
+        // Modifica: aggiorna il singolo record esistente (usa il primo cane selezionato)
+        await db.updateHealthRecord(record.id, {
+          dog_id: formData.dog_ids[0],
+          record_type: dbRecordType,
+          description: formData.description,
+          record_date: formData.record_date,
+          veterinarian: formData.veterinarian || null,
+          cost,
+          next_appointment_date: endDate,
+          notes: notesValue,
+        })
         toast.success('Record sanitario aggiornato')
       } else {
-        savedRecord = await db.createHealthRecord(dataToSubmit)
-        toast.success('Record sanitario aggiunto con successo')
-      }
+        // Nuovo: crea un record per ogni cane selezionato
+        for (const dogId of formData.dog_ids) {
+          const dataToSubmit = {
+            dog_id: dogId,
+            record_type: dbRecordType,
+            description: formData.description,
+            record_date: formData.record_date,
+            veterinarian: formData.veterinarian || null,
+            cost,
+            next_appointment_date: endDate,
+            notes: notesValue,
+          }
 
-      // Auto-crea spesa se c'è un costo (solo nuovi record)
-      if (!record?.id && dataToSubmit.cost && dataToSubmit.cost > 0) {
-        try {
-          const expenseLabels = { vaccinazione: 'Vaccino', visita: 'Visita', intervento: 'Intervento', esame: 'Esame', terapia: 'Terapia', altro: 'Spesa sanitaria' }
-          await db.createExpense({
-            dog_id: dataToSubmit.dog_id,
-            category: 'veterinario',
-            description: `${expenseLabels[formData.record_type] || 'Spesa sanitaria'}: ${dataToSubmit.description}`,
-            amount: dataToSubmit.cost,
-            expense_date: dataToSubmit.record_date,
-            payment_method: null,
-            notes: `Generata automaticamente da evento di salute${dataToSubmit.veterinarian ? ` - ${dataToSubmit.veterinarian}` : ''}`,
-          })
-        } catch (err) { console.warn('Errore creazione spesa:', err) }
-      }
+          await db.createHealthRecord(dataToSubmit)
 
-      // Auto-crea evento calendario per data futura
-      if (!record?.id && dataToSubmit.next_appointment_date) {
-        const futureDate = new Date(dataToSubmit.next_appointment_date)
+          // Auto-crea spesa per ogni cane
+          if (cost && cost > 0) {
+            try {
+              await db.createExpense({
+                dog_id: dogId,
+                category: 'veterinario',
+                description: `${expenseLabels[formData.record_type] || 'Spesa sanitaria'}: ${formData.description}`,
+                amount: cost,
+                expense_date: formData.record_date,
+                payment_method: null,
+                notes: `Generata automaticamente da evento di salute${formData.veterinarian ? ` - ${formData.veterinarian}` : ''}`,
+              })
+            } catch (err) { console.warn('Errore creazione spesa:', err) }
+          }
+        }
+
+        const label = formData.dog_ids.length > 1
+          ? `${formData.dog_ids.length} record sanitari aggiunti`
+          : 'Record sanitario aggiunto con successo'
+        toast.success(label)
+
         const now = new Date(); now.setHours(0, 0, 0, 0)
-        if (futureDate >= now) {
-          try {
-            const eventTitles = {
-              vaccinazione: `Richiamo vaccino: ${dataToSubmit.description}`,
-              visita: `Visita: ${dataToSubmit.description}`,
-              terapia: `Fine terapia: ${dataToSubmit.description}`,
-              altro: dataToSubmit.description,
+        const recordDateObj = new Date(formData.record_date + 'T00:00:00')
+
+        if (isTer) {
+          // TERAPIA: un evento per ogni giorno con la dose del giorno
+          if (fasi.some(f => parseInt(f.giorni) > 0) && recordDateObj >= now) {
+            try {
+              const eventsToCreate = []
+              let dayOffset = 0
+
+              fasi.forEach((fase, faseIndex) => {
+                const giorni = parseInt(fase.giorni) || 0
+                const dosaggio = fase.dosaggio || ''
+                const frequenza = fase.frequenza || ''
+                const totaleFasi = fasi.length
+
+                for (let g = 0; g < giorni; g++) {
+                  const d = new Date(recordDateObj)
+                  d.setDate(d.getDate() + dayOffset + g)
+                  const dateStr = d.toISOString().split('T')[0]
+
+                  const desc = [dosaggio, frequenza].filter(Boolean).join(' · ')
+                  const faseLabel = totaleFasi > 1 ? ` (fase ${faseIndex + 1}/${totaleFasi})` : ''
+
+                  eventsToCreate.push({
+                    dog_ids: formData.dog_ids,
+                    event_type: 'veterinario',
+                    title: `💊 ${formData.description}${faseLabel}`,
+                    description: desc || null,
+                    event_date: dateStr,
+                    completed: false,
+                    reminder_days: 0,
+                  })
+                }
+                dayOffset += giorni
+              })
+
+              await Promise.all(eventsToCreate.map(ev => db.createEvent(ev)))
+              toast.success(`${eventsToCreate.length} eventi terapia aggiunti al calendario`)
+            } catch (err) { console.warn('Errore creazione eventi terapia:', err) }
+          }
+
+          // Evento "Fine terapia"
+          if (endDate) {
+            const endDateObj = new Date(endDate + 'T00:00:00')
+            if (endDateObj >= now) {
+              try {
+                await db.createEvent({
+                  dog_ids: formData.dog_ids,
+                  event_type: 'veterinario',
+                  title: `Fine terapia: ${formData.description}`,
+                  description: null,
+                  event_date: endDate,
+                  completed: false,
+                  reminder_days: 1,
+                })
+              } catch (err) { console.warn('Errore creazione fine terapia:', err) }
             }
-            const faseSummary = isTer && fasi.some(f => f.dosaggio)
-              ? fasi.map(f => `${f.dosaggio}${f.frequenza ? ' · ' + f.frequenza : ''}${f.giorni ? ' × ' + f.giorni + 'gg' : ''}`).join(' → ')
-              : null
-            await db.createEvent({
-              dog_ids: [dataToSubmit.dog_id],
-              event_type: 'veterinario',
-              title: eventTitles[formData.record_type] || dataToSubmit.description,
-              description: faseSummary,
-              event_date: dataToSubmit.next_appointment_date,
-              completed: false,
-              reminder_days: 3,
-            })
-            toast.success('Evento aggiunto al calendario')
-          } catch (err) { console.warn('Errore creazione evento:', err) }
+          }
+        } else {
+          // NON TERAPIA: un solo evento sulla data dell'evento
+          if (recordDateObj >= now) {
+            const mainTitles = {
+              vaccinazione: `Vaccinazione: ${formData.description}`,
+              visita:       `Visita: ${formData.description}`,
+              intervento:   `Intervento: ${formData.description}`,
+              esame:        `Esame: ${formData.description}`,
+              altro:        formData.description,
+            }
+            try {
+              await db.createEvent({
+                dog_ids: formData.dog_ids,
+                event_type: 'veterinario',
+                title: mainTitles[formData.record_type] || formData.description,
+                description: null,
+                event_date: formData.record_date,
+                completed: false,
+                reminder_days: 1,
+              })
+              toast.success('Evento aggiunto al calendario')
+            } catch (err) { console.warn('Errore creazione evento:', err) }
+          }
+
+          // Prossimo appuntamento (richiamo, follow-up)
+          if (endDate) {
+            const futureDate = new Date(endDate + 'T00:00:00')
+            if (futureDate >= now) {
+              const followUpTitles = {
+                vaccinazione: `Richiamo vaccino: ${formData.description}`,
+                visita:       `Visita follow-up: ${formData.description}`,
+                altro:        formData.description,
+              }
+              try {
+                await db.createEvent({
+                  dog_ids: formData.dog_ids,
+                  event_type: 'veterinario',
+                  title: followUpTitles[formData.record_type] || formData.description,
+                  description: null,
+                  event_date: endDate,
+                  completed: false,
+                  reminder_days: 3,
+                })
+                toast.success('Promemoria aggiunto al calendario')
+              } catch (err) { console.warn('Errore creazione follow-up:', err) }
+            }
+          }
         }
       }
 
@@ -236,19 +352,62 @@ export default function HealthRecordForm({ record, onClose, onSuccess }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Cane *</label>
-                <select
-                  name="dog_id"
-                  value={formData.dog_id}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
-                >
-                  <option value="">Seleziona un cane</option>
-                  {dogs.map((dog) => (
-                    <option key={dog.id} value={dog.id}>{dog.name} - {dog.breed}</option>
-                  ))}
-                </select>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Cane *
+                  {formData.dog_ids.length > 0 && (
+                    <span className="ml-2 text-primary-600 font-bold">{formData.dog_ids.length} selezionati</span>
+                  )}
+                </label>
+
+                {dogs.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">Nessun cane registrato</p>
+                ) : (
+                  <>
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={dogSearch}
+                        onChange={(e) => setDogSearch(e.target.value)}
+                        placeholder="Cerca cane..."
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {filteredDogs.map((dog) => {
+                        const isChecked = formData.dog_ids.includes(dog.id)
+                        return (
+                          <label
+                            key={dog.id}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition ${
+                              isChecked
+                                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                                : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleDog(dog.id)}
+                              className="w-4 h-4 rounded text-primary-500 focus:ring-primary-200"
+                            />
+                            <div
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: dog.color || '#94a3b8' }}
+                            />
+                            <span className="text-sm font-medium min-w-0">
+                              {dog.name}
+                              {dog.breed && <span className="text-xs text-gray-400 block truncate">{dog.breed}</span>}
+                            </span>
+                          </label>
+                        )
+                      })}
+                      {filteredDogs.length === 0 && dogSearch && (
+                        <p className="text-sm text-gray-400 italic col-span-full px-1">Nessun risultato per "{dogSearch}"</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div>

@@ -1,18 +1,79 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Dog, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Dog,
   Calendar,
-  Baby
+  Baby,
+  Edit,
+  Trash2,
+  CheckCircle2,
 } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { it } from 'date-fns/locale'
+import EventForm from '@/components/calendar/EventForm'
+import TransactionForm from '@/components/finance/TransactionForm'
+import toast from 'react-hot-toast'
 
 export default function Dashboard() {
   const currentYear = new Date().getFullYear()
+  const queryClient = useQueryClient()
+
+  const [editingEvent, setEditingEvent] = useState(null)
+  const [editingTransaction, setEditingTransaction] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null) // { message, onConfirm }
+
+  const invalidateEvents = () => queryClient.invalidateQueries(['upcoming-events'])
+  const invalidateTransactions = () => {
+    queryClient.invalidateQueries(['recent-income'])
+    queryClient.invalidateQueries(['recent-expenses'])
+    queryClient.invalidateQueries(['income'])
+    queryClient.invalidateQueries(['expenses'])
+    queryClient.invalidateQueries(['yearly-income', currentYear])
+    queryClient.invalidateQueries(['yearly-expenses', currentYear])
+  }
+
+  const handleDeleteEvent = (event) => {
+    setConfirmDialog({
+      message: `Eliminare l'evento "${event.title}"?`,
+      onConfirm: async () => {
+        await db.deleteEvent(event.id)
+        toast.success('Evento eliminato')
+        invalidateEvents()
+        setConfirmDialog(null)
+      },
+    })
+  }
+
+  const handleDoneEvent = (event) => {
+    setConfirmDialog({
+      message: `Segnare "${event.title}" come completato?`,
+      confirmLabel: 'Fatto ✓',
+      confirmClass: 'bg-green-500 hover:bg-green-600',
+      onConfirm: async () => {
+        await db.updateEvent(event.id, { completed: true })
+        toast.success('Evento completato!')
+        invalidateEvents()
+        setConfirmDialog(null)
+      },
+    })
+  }
+
+  const handleDeleteTransaction = (item) => {
+    setConfirmDialog({
+      message: `Eliminare "${item.description}"?`,
+      onConfirm: async () => {
+        if (item.type === 'income') await db.deleteIncome(item.id)
+        else await db.deleteExpense(item.id)
+        toast.success('Transazione eliminata')
+        invalidateTransactions()
+        setConfirmDialog(null)
+      },
+    })
+  }
 
   // Fetch statistiche annuali con cache
   const { data: yearlyIncome = 0, isLoading: loadingIncome } = useQuery({
@@ -163,7 +224,7 @@ export default function Dashboard() {
             {upcomingEvents?.slice(0, 5).map((event) => (
               <div
                 key={event.id}
-                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm hover:shadow-md transition"
+                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm hover:shadow-md transition group"
               >
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
@@ -176,14 +237,37 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                  event.event_type === 'veterinario' ? 'bg-red-100 text-red-700' :
-                  event.event_type === 'calore_stimato' ? 'bg-pink-100 text-pink-700' :
-                  event.event_type === 'parto_stimato' ? 'bg-purple-100 text-purple-700' :
-                  'bg-blue-100 text-blue-700'
-                }`}>
-                  {event.event_type.replace('_', ' ')}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
+                    event.event_type === 'veterinario' ? 'bg-red-100 text-red-700' :
+                    event.event_type === 'calore_stimato' ? 'bg-pink-100 text-pink-700' :
+                    event.event_type === 'parto_stimato' ? 'bg-purple-100 text-purple-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>
+                    {event.event_type.replace('_', ' ')}
+                  </span>
+                  <button
+                    onClick={() => handleDoneEvent(event)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-green-500 hover:bg-green-50 transition opacity-0 group-hover:opacity-100"
+                    title="Fatto"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setEditingEvent(event)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-orange-500 hover:bg-orange-50 transition opacity-0 group-hover:opacity-100"
+                    title="Modifica"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteEvent(event)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                    title="Elimina"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
             
@@ -205,7 +289,7 @@ export default function Dashboard() {
             {income?.slice(0, 3).map((item) => (
               <div
                 key={item.id}
-                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm"
+                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm hover:shadow-md transition group"
               >
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
@@ -218,7 +302,23 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <span className="text-green-600 font-bold">+€{item.amount}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-green-600 font-bold">+€{item.amount}</span>
+                  <button
+                    onClick={() => setEditingTransaction({ ...item, type: 'income' })}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-green-500 hover:bg-green-50 transition opacity-0 group-hover:opacity-100"
+                    title="Modifica"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTransaction({ ...item, type: 'income' })}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                    title="Elimina"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -226,7 +326,7 @@ export default function Dashboard() {
             {expenses?.slice(0, 2).map((item) => (
               <div
                 key={item.id}
-                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm"
+                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm hover:shadow-md transition group"
               >
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
@@ -239,12 +339,89 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <span className="text-red-600 font-bold">-€{item.amount}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-red-600 font-bold">-€{item.amount}</span>
+                  <button
+                    onClick={() => setEditingTransaction({ ...item, type: 'expense' })}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                    title="Modifica"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTransaction({ ...item, type: 'expense' })}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                    title="Elimina"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+      {/* Popup conferma */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 space-y-6">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                confirmDialog.confirmClass?.includes('green') ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {confirmDialog.confirmClass?.includes('green')
+                  ? <CheckCircle2 className="w-7 h-7 text-green-500" />
+                  : <Trash2 className="w-7 h-7 text-red-500" />
+                }
+              </div>
+              <p className="text-gray-700 font-semibold">{confirmDialog.message}</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="flex-1 px-4 py-3 rounded-2xl border-2 border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={confirmDialog.onConfirm}
+                className={`flex-1 px-4 py-3 rounded-2xl text-white font-bold transition shadow-lg ${
+                  confirmDialog.confirmClass || 'bg-red-500 hover:bg-red-600 shadow-red-500/30'
+                }`}
+              >
+                {confirmDialog.confirmLabel || 'Elimina'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modifica Evento */}
+      {editingEvent && (
+        <EventForm
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSuccess={() => {
+            setEditingEvent(null)
+            queryClient.invalidateQueries(['upcoming-events'])
+          }}
+        />
+      )}
+
+      {/* Modifica Transazione */}
+      {editingTransaction && (
+        <TransactionForm
+          transaction={editingTransaction}
+          onClose={() => setEditingTransaction(null)}
+          onSuccess={() => {
+            setEditingTransaction(null)
+            queryClient.invalidateQueries(['recent-income'])
+            queryClient.invalidateQueries(['recent-expenses'])
+            queryClient.invalidateQueries(['income'])
+            queryClient.invalidateQueries(['expenses'])
+          }}
+        />
+      )}
     </div>
   )
 }

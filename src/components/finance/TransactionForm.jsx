@@ -71,8 +71,8 @@ export default function TransactionForm({ transaction, onClose, onSuccess }) {
         dataToSubmit.invoice_number = formData.invoice_number || null
 
         if (transaction?.id) {
-          // Update income (da implementare se necessario)
-          toast.error('Modifica entrate non ancora implementata')
+          await db.updateIncome(transaction.id, dataToSubmit)
+          toast.success('Entrata aggiornata con successo')
         } else {
           await db.createIncome(dataToSubmit)
           toast.success('Entrata registrata con successo')
@@ -82,8 +82,8 @@ export default function TransactionForm({ transaction, onClose, onSuccess }) {
         dataToSubmit.dog_id = formData.dog_id || null
 
         if (transaction?.id) {
-          // Update expense (da implementare se necessario)
-          toast.error('Modifica spese non ancora implementata')
+          await db.updateExpense(transaction.id, dataToSubmit)
+          toast.success('Spesa aggiornata con successo')
         } else {
           await db.createExpense(dataToSubmit)
           toast.success('Spesa registrata con successo')

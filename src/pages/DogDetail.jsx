@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Edit,
   Trash2,
+  FileDown,
   Calendar,
   Heart,
   Activity,
@@ -13,7 +14,13 @@ import {
   MapPin,
   Phone,
   Mail,
-  ChevronRight
+  ChevronRight,
+  Stethoscope,
+  Scissors,
+  Trophy,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react'
 import { differenceInYears, differenceInMonths, format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -21,16 +28,169 @@ import toast from 'react-hot-toast'
 import DogForm from '@/components/dogs/DogForm'
 import DogMeasurements from '@/components/dogs/DogMeasurements'
 import DogGrowthChart from '@/components/dogs/DogGrowthChart'
+import DogPdfModal from '@/components/dogs/DogPdfModal'
+
+const EVENT_TYPE_CONFIG = {
+  veterinario:    { label: 'Veterinario',    icon: Stethoscope, bg: 'bg-blue-100',   text: 'text-blue-700'   },
+  toelettatura:   { label: 'Toelettatura',   icon: Scissors,    bg: 'bg-purple-100', text: 'text-purple-700' },
+  esposizione:    { label: 'Esposizione',    icon: Trophy,      bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  calore_stimato: { label: 'Calore Stimato', icon: Heart,       bg: 'bg-pink-100',   text: 'text-pink-700'   },
+  parto_stimato:  { label: 'Parto Stimato',  icon: AlertCircle, bg: 'bg-orange-100', text: 'text-orange-700' },
+  altro:          { label: 'Altro',           icon: Calendar,    bg: 'bg-gray-100',   text: 'text-gray-700'   },
+}
+
+function DogHistory({ dogEvents, heatCycles }) {
+  const [activeFilter, setActiveFilter] = useState('tutti')
+
+  // Unifica eventi calendario e calori in un unico array ordinato per data
+  const allItems = [
+    ...dogEvents.map(e => ({
+      id: `event-${e.id}`,
+      date: e.event_date,
+      title: e.title,
+      description: e.description,
+      type: e.event_type,
+      completed: e.completed,
+      source: 'calendar',
+    })),
+    ...heatCycles.map(h => ({
+      id: `heat-${h.id}`,
+      date: h.start_date,
+      title: 'Calore',
+      description: h.notes || null,
+      type: 'calore_stimato',
+      completed: true,
+      source: 'heat',
+    })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date))
+
+  // Ricava solo i tipi effettivamente presenti per mostrare i filtri pertinenti
+  const presentTypes = ['tutti', ...new Set(allItems.map(i => i.type))]
+
+  const filtered = activeFilter === 'tutti'
+    ? allItems
+    : allItems.filter(i => i.type === activeFilter)
+
+  if (allItems.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <Calendar className="w-8 h-8 text-purple-600" />
+        </div>
+        <p className="font-bold text-gray-700 mb-1">Nessun evento registrato</p>
+        <p className="text-gray-500 text-sm">Gli eventi del calendario associati a questo cane appariranno qui</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-black text-gray-900">Storico Eventi</h3>
+        <span className="text-sm text-gray-400 font-semibold">{filtered.length} eventi</span>
+      </div>
+
+      {/* Filtri per tipo */}
+      <div className="flex flex-wrap gap-2">
+        {presentTypes.map((type) => {
+          const isAll = type === 'tutti'
+          const config = isAll ? null : EVENT_TYPE_CONFIG[type] || EVENT_TYPE_CONFIG.altro
+          const Icon = config?.icon
+          const isActive = activeFilter === type
+          return (
+            <button
+              key={type}
+              onClick={() => setActiveFilter(type)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                isActive
+                  ? isAll
+                    ? 'bg-primary-500 text-white'
+                    : `${config.bg} ${config.text} ring-2 ring-offset-1 ring-current`
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {Icon && <Icon className="w-3.5 h-3.5" />}
+              {isAll ? 'Tutti' : config.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Lista */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-8 text-gray-400 font-semibold">
+          Nessun evento di questo tipo
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((item) => {
+            const config = EVENT_TYPE_CONFIG[item.type] || EVENT_TYPE_CONFIG.altro
+            const Icon = config.icon
+            const dateStr = item.date?.includes('T')
+              ? format(new Date(item.date), 'dd MMM yyyy · HH:mm', { locale: it })
+              : format(new Date(item.date + 'T00:00:00'), 'dd MMM yyyy', { locale: it })
+
+            return (
+              <div
+                key={item.id}
+                className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-200"
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${config.bg}`}>
+                  <Icon className={`w-5 h-5 ${config.text}`} />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${config.bg} ${config.text}`}>
+                      {config.label}
+                    </span>
+                    {item.completed ? (
+                      <span className="flex items-center gap-1 text-xs text-green-600 font-semibold">
+                        <CheckCircle2 className="w-3 h-3" /> Completato
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-orange-500 font-semibold">
+                        <Clock className="w-3 h-3" /> In programma
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-bold text-gray-900">{item.title}</p>
+                  {item.description && (
+                    <p className="text-sm text-gray-600 mt-0.5">{item.description}</p>
+                  )}
+                  <p className="text-xs text-gray-400 font-semibold mt-1">{dateStr}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function DogDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isPdfOpen, setIsPdfOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
 
   const { data: dog, isLoading, refetch } = useQuery({
     queryKey: ['dog', id],
     queryFn: () => db.getDog(id),
+  })
+
+  const { data: dogEvents = [] } = useQuery({
+    queryKey: ['events', 'dog', id],
+    queryFn: () => db.getEvents({ dogId: id }),
+    enabled: !!id,
+  })
+
+  const { data: heatCycles = [] } = useQuery({
+    queryKey: ['heatCycles', id],
+    queryFn: () => db.getHeatCycles(id),
+    enabled: !!id,
   })
 
   const calculateAge = (birthDate) => {
@@ -126,7 +286,10 @@ export default function DogDetail() {
       <div className="bg-white rounded-3xl border-2 border-gray-100 p-6">
         <div className="flex flex-col md:flex-row gap-6">
           {/* Dog Image */}
-          <div className="w-full md:w-48 h-48 bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl flex items-center justify-center text-white flex-shrink-0">
+          <div
+            className="w-full md:w-48 h-48 rounded-2xl flex items-center justify-center text-white flex-shrink-0"
+            style={{ background: dog.color ? `linear-gradient(135deg, ${dog.color}cc, ${dog.color})` : 'linear-gradient(135deg, #818cf8, #6366f1)' }}
+          >
             <span className="text-6xl font-black">{dog.name.charAt(0).toUpperCase()}</span>
           </div>
 
@@ -146,6 +309,13 @@ export default function DogDetail() {
               </div>
 
               <div className="flex gap-2">
+                <button
+                  onClick={() => setIsPdfOpen(true)}
+                  className="p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition"
+                  title="Esporta PDF"
+                >
+                  <FileDown className="w-5 h-5" />
+                </button>
                 <button
                   onClick={() => setIsEditOpen(true)}
                   className="p-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition"
@@ -296,12 +466,7 @@ export default function DogDetail() {
         )}
 
         {activeTab === 'storia' && (
-          <div className="text-center py-10">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Calendar className="w-8 h-8 text-purple-600" />
-            </div>
-            <p className="text-gray-500">Storico eventi in arrivo</p>
-          </div>
+          <DogHistory dogEvents={dogEvents} heatCycles={heatCycles} />
         )}
       </div>
 
@@ -314,6 +479,16 @@ export default function DogDetail() {
             setIsEditOpen(false)
             refetch()
           }}
+        />
+      )}
+
+      {/* PDF Modal */}
+      {isPdfOpen && (
+        <DogPdfModal
+          dog={dog}
+          dogEvents={dogEvents}
+          heatCycles={heatCycles}
+          onClose={() => setIsPdfOpen(false)}
         />
       )}
     </div>
