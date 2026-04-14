@@ -242,10 +242,16 @@ export const db = {
       .select(`
         *,
         litter:litters(
+          id,
           birth_date,
+          males,
+          females,
+          total_puppies,
+          alive_puppies,
+          deceased_puppies,
           mating:matings(
-            female:female_id(name),
-            male:male_id(name)
+            female:dogs!matings_female_id_fkey(name),
+            male:dogs!matings_male_id_fkey(name)
           )
         )
       `)

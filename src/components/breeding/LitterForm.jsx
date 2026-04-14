@@ -76,7 +76,7 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
         }
       } else {
         // Nuova cucciolata
-        await db.createLitter(litterData)
+        const newLitter = await db.createLitter(litterData)
 
         // Aggiorna l'accoppiamento associato
         if (litterData.mating_id && litterData.birth_date) {
@@ -92,6 +92,34 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
               litter_born: true
             })
           }
+        }
+
+        // Auto-crea i record individuali dei cuccioli
+        if (totalPuppies > 0 && newLitter?.id) {
+          const puppyRecords = []
+          const malesCount = parseInt(formData.males) || 0
+          const femalesCount = parseInt(formData.females) || 0
+
+          for (let i = 0; i < malesCount; i++) {
+            puppyRecords.push({ gender: 'maschio', status: 'disponibile', litter_id: newLitter.id })
+          }
+          for (let i = 0; i < femalesCount; i++) {
+            puppyRecords.push({ gender: 'femmina', status: 'disponibile', litter_id: newLitter.id })
+          }
+          // Se totale > maschi + femmine, aggiungi i restanti senza genere specificato
+          const remaining = totalPuppies - malesCount - femalesCount
+          for (let i = 0; i < Math.max(0, remaining); i++) {
+            puppyRecords.push({ status: 'disponibile', litter_id: newLitter.id })
+          }
+          // Marca gli ultimi N come deceduti
+          if (deceasedPuppies > 0) {
+            const startIdx = Math.max(0, puppyRecords.length - deceasedPuppies)
+            for (let i = startIdx; i < puppyRecords.length; i++) {
+              puppyRecords[i].status = 'deceduto'
+            }
+          }
+
+          await Promise.all(puppyRecords.map(p => db.createPuppy(p)))
         }
       }
 

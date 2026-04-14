@@ -6,6 +6,9 @@ import toast from 'react-hot-toast'
 
 export default function PuppyForm({ puppy, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
+  // buyer_contact è salvato come "email|telefono"
+  const [buyerEmailRaw, buyerPhoneRaw] = (puppy?.buyer_contact || '').split('|')
+
   const [formData, setFormData] = useState({
     litter_id: puppy?.litter_id || '',
     name: puppy?.name || '',
@@ -16,7 +19,8 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
     microchip: puppy?.microchip || '',
     sale_price: puppy?.sale_price || '',
     buyer_name: puppy?.buyer_name || '',
-    buyer_contact: puppy?.buyer_contact || '',
+    buyer_email: buyerEmailRaw?.trim() || '',
+    buyer_phone: buyerPhoneRaw?.trim() || '',
     sale_date: puppy?.sale_date || '',
     deposit_amount: puppy?.deposit_amount || '',
     deposit_date: puppy?.deposit_date || '',
@@ -35,8 +39,14 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
 
     try {
       // Converti stringhe vuote in null per i campi numerici
+      // Combina email e telefono in buyer_contact come "email|telefono"
+      const buyerContact = [formData.buyer_email.trim(), formData.buyer_phone.trim()]
+        .filter(Boolean).join('|') || null
+
+      const { buyer_email, buyer_phone, ...rest } = formData
       const dataToSubmit = {
-        ...formData,
+        ...rest,
+        buyer_contact: buyerContact,
         litter_id: formData.litter_id || null,
         birth_weight: formData.birth_weight ? parseFloat(formData.birth_weight) : null,
         sale_price: formData.sale_price ? parseFloat(formData.sale_price) : null,
@@ -228,7 +238,7 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Data Vendita
+                    {formData.status === 'prenotato' ? 'Data Ritiro' : 'Data Vendita'}
                   </label>
                   <input
                     type="date"
@@ -255,15 +265,29 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Contatto Acquirente
+                    Email Acquirente
                   </label>
                   <input
-                    type="text"
-                    name="buyer_contact"
-                    value={formData.buyer_contact}
+                    type="email"
+                    name="buyer_email"
+                    value={formData.buyer_email}
                     onChange={handleChange}
                     className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
-                    placeholder="email o telefono"
+                    placeholder="mario@esempio.it"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Telefono Acquirente
+                  </label>
+                  <input
+                    type="tel"
+                    name="buyer_phone"
+                    value={formData.buyer_phone}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                    placeholder="+39 333 1234567"
                   />
                 </div>
 
