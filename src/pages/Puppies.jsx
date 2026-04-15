@@ -8,14 +8,26 @@ import { it } from 'date-fns/locale'
 import PuppyForm from '@/components/puppies/PuppyForm'
 import PuppyCard from '@/components/puppies/PuppyCard'
 
+// Una cucciolata è "passata" se nessun cucciolo è disponibile o prenotato
+function isLitterPast(puppies) {
+  if (!puppies.length) return false
+  return puppies.every(p => ['venduto', 'trattenuto', 'deceduto'].includes(p.status))
+}
+
 // Gruppo cucciolata con ricerca interna e toggle apri/chiudi
-function LitterGroup({ group, onEdit, onDelete }) {
+function LitterGroup({ group, onEdit, onDelete, defaultOpen = true }) {
   const [search, setSearch] = useState('')
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
 
   const visiblePuppies = search.trim()
-    ? group.puppies.filter(p => (p.name || '').toLowerCase().includes(search.toLowerCase()))
+    ? group.puppies.filter(p =>
+        (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (p.color || '').toLowerCase().includes(search.toLowerCase())
+      )
     : group.puppies
+
+  // Apri automaticamente quando si cerca
+  const isOpen = open || search.trim().length > 0
 
   const litterName = group.litter?.mating?.female?.name && group.litter?.mating?.male?.name
     ? `${group.litter.mating.female.name} × ${group.litter.mating.male.name}`
@@ -33,40 +45,42 @@ function LitterGroup({ group, onEdit, onDelete }) {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-black text-gray-900 text-base">{litterName}</span>
-              {group.litter?.birth_date && (
-                <span className="flex items-center gap-1 text-xs text-gray-500 font-semibold">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {format(new Date(group.litter.birth_date), 'dd MMM yyyy', { locale: it })}
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-500 font-semibold mt-0.5">
-              {group.litter?.males > 0 && <span>♂ {group.litter.males} maschi</span>}
-              {group.litter?.females > 0 && <span>♀ {group.litter.females} femmine</span>}
+              {group.litter?.females > 0 && <span className="text-pink-500">♀ {group.litter.females} femmine</span>}
+              {group.litter?.males > 0 && <span className="text-sky-500">♂ {group.litter.males} maschi</span>}
               {group.litter?.deceased_puppies > 0 && (
                 <span className="text-gray-400">† {group.litter.deceased_puppies} deceduti</span>
               )}
               <span className="text-primary-600 font-bold">{group.puppies.length} cuccioli</span>
+              {group.litter?.birth_date && (
+                <span className="flex items-center gap-1 text-gray-400">
+                  <Calendar className="w-3 h-3" />
+                  {format(new Date(group.litter.birth_date), 'dd MMM yyyy', { locale: it })}
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Search — cresce per occupare lo spazio */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        <div className="flex-1" />
+
+        {/* Search */}
+        <div className="relative w-36">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Cerca cucciolo per nome..."
-            className="w-full pl-8 pr-8 py-2 rounded-xl border-2 border-gray-200 bg-gray-50 text-sm focus:border-primary-500 focus:outline-none focus:bg-white transition"
+            placeholder="Cerca..."
+            className="w-full pl-7 pr-6 py-1.5 rounded-lg border-2 border-gray-200 bg-gray-50 text-xs focus:border-primary-500 focus:outline-none focus:bg-white transition"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </button>
           )}
         </div>
@@ -87,7 +101,7 @@ function LitterGroup({ group, onEdit, onDelete }) {
       </div>
 
       {/* Grid cuccioli (collassabile) */}
-      {open && (
+      {isOpen && (
         visiblePuppies.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {visiblePuppies.map(puppy => (
@@ -103,6 +117,7 @@ function LitterGroup({ group, onEdit, onDelete }) {
 }
 
 export default function Puppies() {
+  const [tab, setTab] = useState('attuali')
   const [filter, setFilter] = useState('tutti')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [selectedPuppy, setSelectedPuppy] = useState(null)
@@ -140,10 +155,24 @@ export default function Puppies() {
     return acc
   }, {})
 
-  const sortedGroups = Object.values(groupedPuppies).sort((a, b) => {
+  const allGroups = Object.values(groupedPuppies).sort((a, b) => {
     if (!a.litter_id) return 1
     if (!b.litter_id) return -1
     return new Date(b.litter.birth_date) - new Date(a.litter.birth_date)
+  })
+
+  // Dividi tra attuali e passate (usa tutti i cuccioli del gruppo, non solo filtrati)
+  const groupedAll = allPuppies.reduce((acc, puppy) => {
+    const key = puppy.litter_id || '__nolitter__'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(puppy)
+    return acc
+  }, {})
+
+  const sortedGroups = allGroups.filter(group => {
+    const allInLitter = groupedAll[group.litter_id || '__nolitter__'] || group.puppies
+    const past = isLitterPast(allInLitter)
+    return tab === 'passate' ? past : !past
   })
 
   const stats = {
@@ -184,6 +213,26 @@ export default function Puppies() {
           <Plus className="w-5 h-5" />
           Nuovo Cucciolo
         </button>
+      </div>
+
+      {/* Tab attuali / passate */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl w-fit">
+        {[
+          { key: 'attuali', label: '🐾 Cucciolate attuali' },
+          { key: 'passate', label: '📦 Cucciolate passate' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-5 py-2 rounded-xl font-bold text-sm transition ${
+              tab === key
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Filters */}
@@ -246,6 +295,7 @@ export default function Puppies() {
               group={group}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              defaultOpen={tab !== 'passate'}
             />
           ))}
         </div>

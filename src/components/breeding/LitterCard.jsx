@@ -12,9 +12,11 @@ export default function LitterCard({ litter, onEdit, onDelete }) {
             {litter.mating?.female?.name} × {litter.mating?.male?.name}
           </h3>
           <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span className="text-primary-600 font-bold">{litter.total_puppies} cuccioli</span>
+            <span>•</span>
             <Calendar className="w-4 h-4" />
             <span>{birthDate.toLocaleDateString('it-IT')}</span>
-            <span className="text-primary-600 font-bold">• {ageInDays} giorni</span>
+            <span className="text-gray-400">({ageInDays}gg)</span>
           </div>
         </div>
         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
@@ -33,36 +35,28 @@ export default function LitterCard({ litter, onEdit, onDelete }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-primary-50 rounded-2xl p-4 text-center">
-          <div className="text-3xl font-black text-primary-600">{litter.total_puppies}</div>
-          <div className="text-sm font-bold text-gray-600 mt-1">Totale</div>
-        </div>
-        <div className="bg-blue-50 rounded-2xl p-4 text-center">
-          <div className="text-3xl font-black text-blue-600">{litter.males || 0}</div>
-          <div className="text-sm font-bold text-gray-600 mt-1">Maschi</div>
-        </div>
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-pink-50 rounded-2xl p-4 text-center">
-          <div className="text-3xl font-black text-pink-600">{litter.females || 0}</div>
-          <div className="text-sm font-bold text-gray-600 mt-1">Femmine</div>
+          <div className="text-3xl font-black text-pink-500">{litter.females || 0}</div>
+          <div className="text-sm font-bold text-pink-400 mt-1">Femmine</div>
+        </div>
+        <div className="bg-sky-50 rounded-2xl p-4 text-center">
+          <div className="text-3xl font-black text-sky-500">{litter.males || 0}</div>
+          <div className="text-sm font-bold text-sky-400 mt-1">Maschi</div>
         </div>
       </div>
 
       {/* Cuccioli vivi e deceduti */}
-      {(litter.alive_puppies !== undefined || litter.deceased_puppies > 0) && (
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <div className="bg-green-50 rounded-2xl p-3 text-center">
-            <div className="text-2xl font-black text-green-600">{litter.alive_puppies || 0}</div>
-            <div className="text-xs font-bold text-gray-600 mt-1">Vivi</div>
-          </div>
-          {litter.deceased_puppies > 0 && (
-            <div className="bg-gray-100 rounded-2xl p-3 text-center">
-              <div className="text-2xl font-black text-gray-600">{litter.deceased_puppies}</div>
-              <div className="text-xs font-bold text-gray-600 mt-1">Deceduti</div>
-            </div>
-          )}
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="bg-green-50 rounded-2xl p-3 text-center">
+          <div className="text-2xl font-black text-green-600">{litter.alive_puppies || 0}</div>
+          <div className="text-xs font-bold text-green-400 mt-1">Vivi</div>
         </div>
-      )}
+        <div className="bg-gray-100 rounded-2xl p-3 text-center">
+          <div className="text-2xl font-black text-gray-500">{litter.deceased_puppies || 0}</div>
+          <div className="text-xs font-bold text-gray-400 mt-1">Deceduti</div>
+        </div>
+      </div>
 
       {litter.notes && (
         <div className="mt-4 pt-4 border-t border-gray-100">

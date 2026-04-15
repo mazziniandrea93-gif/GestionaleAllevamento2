@@ -9,6 +9,7 @@ import MatingCard from '@/components/breeding/MatingCard'
 
 export default function Breeding() {
   const [activeTab, setActiveTab] = useState('cucciolate')
+  const [litterSubTab, setLitterSubTab] = useState('attuali')
   const [showLitterForm, setShowLitterForm] = useState(false)
   const [showMatingForm, setShowMatingForm] = useState(false)
   const [selectedLitter, setSelectedLitter] = useState(null)
@@ -102,11 +103,19 @@ export default function Breeding() {
     queryClient.invalidateQueries(['matings'])
   }
 
-  // Filtra i risultati in base alla ricerca
-  const filteredLitters = litters.filter(litter =>
-    litter.mating?.female?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    litter.mating?.male?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Soglia 6 mesi fa
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+  // Filtra i risultati in base alla ricerca + sotto-tab cucciolate
+  const filteredLitters = litters.filter(litter => {
+    const matchesSearch =
+      litter.mating?.female?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      litter.mating?.male?.name.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!matchesSearch) return false
+    const isPast = new Date(litter.birth_date) < sixMonthsAgo
+    return litterSubTab === 'passate' ? isPast : !isPast
+  })
 
   const filteredMatings = matings.filter(mating =>
     mating.female?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -132,20 +141,45 @@ export default function Breeding() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200">
-        {['cucciolate', 'accoppiamenti'].map((tab) => (
+        {[
+          { key: 'cucciolate', label: 'Cucciolate' },
+          { key: 'accoppiamenti', label: 'Accoppiamenti' },
+        ].map(({ key, label }) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 font-bold capitalize transition ${
-              activeTab === tab
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`px-6 py-3 font-bold transition ${
+              activeTab === key
                 ? 'text-primary-600 border-b-2 border-primary-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab}
+            {label}
           </button>
         ))}
       </div>
+
+      {/* Sotto-tab cucciolate */}
+      {activeTab === 'cucciolate' && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl w-fit">
+          {[
+            { key: 'attuali', label: '🐾 Cucciolate attuali' },
+            { key: 'passate', label: '📦 Cucciolate passate' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setLitterSubTab(key)}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition ${
+                litterSubTab === key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -171,11 +205,17 @@ export default function Breeding() {
               <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Heart className="w-10 h-10 text-primary-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-700 mb-2">Nessuna cucciolata</h3>
+              <h3 className="text-xl font-bold text-gray-700 mb-2">
+                {litterSubTab === 'passate' ? 'Nessuna cucciolata passata' : 'Nessuna cucciolata'}
+              </h3>
               <p className="text-gray-500 mb-6">
-                {searchQuery ? 'Nessuna cucciolata trovata con questi criteri' : 'Inizia aggiungendo la prima cucciolata'}
+                {searchQuery
+                  ? 'Nessuna cucciolata trovata con questi criteri'
+                  : litterSubTab === 'passate'
+                    ? 'Non ci sono cucciolate più vecchie di 6 mesi'
+                    : 'Inizia aggiungendo la prima cucciolata'}
               </p>
-              {!searchQuery && (
+              {!searchQuery && litterSubTab === 'attuali' && (
                 <button
                   onClick={() => setShowLitterForm(true)}
                   className="px-6 py-3 bg-primary-500 text-white rounded-2xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30"
