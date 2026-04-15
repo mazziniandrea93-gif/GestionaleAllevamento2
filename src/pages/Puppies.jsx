@@ -196,7 +196,7 @@ export default function Puppies() {
   }
 
   const handleFormClose = () => { setIsFormOpen(false); setSelectedPuppy(null) }
-  const handleFormSuccess = () => { handleFormClose(); queryClient.invalidateQueries(['puppies']) }
+  const handleFormSuccess = () => { handleFormClose(); queryClient.invalidateQueries(['puppies']); queryClient.invalidateQueries(['income']) }
 
   return (
     <div className="space-y-6">

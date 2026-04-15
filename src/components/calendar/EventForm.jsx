@@ -76,6 +76,14 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
       if (event?.id) {
         await db.updateEvent(event.id, dataToSubmit)
         toast.success('Evento aggiornato con successo')
+
+        // Se l'evento è collegato a un accoppiamento, aggiorna la data parto previsto
+        const matingMatch = (event.description || '').match(/__mating_id:([a-f0-9-]+)__/)
+        if (matingMatch) {
+          const matingId = matingMatch[1]
+          const newDate = formData.event_date
+          await db.updateMating(matingId, { expected_delivery: newDate })
+        }
       } else {
         await db.createEvent(dataToSubmit)
         toast.success('Evento aggiunto con successo')

@@ -253,7 +253,7 @@ export default function Finance() {
             <DollarSign className="w-10 h-10 text-green-600" />
           </div>
           <h3 className="text-xl font-bold text-gray-700 mb-2">
-            {filter === 'tutti' ? 'Nessuna Transazione' : `Nessuna ${filter.slice(0, -1)}`}
+            {filter === 'tutti' ? 'Nessuna Transazione' : filter === 'entrate' ? 'Nessuna Entrata' : 'Nessuna Uscita'}
           </h3>
           <p className="text-gray-500">
             {filter === 'tutti' 

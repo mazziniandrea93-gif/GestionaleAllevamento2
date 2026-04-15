@@ -204,9 +204,11 @@ export const db = {
   },
 
   async createIncome(income) {
+    const userId = await getCurrentUserId()
+
     const { data, error } = await supabase
       .from('income')
-      .insert([income])
+      .insert([{ ...income, user_id: userId }])
       .select()
       .single()
 
@@ -339,6 +341,16 @@ export const db = {
       ...e,
       dogs: (e.dog_ids || []).map(id => dogsMap[id]).filter(Boolean),
     }))
+  },
+
+  async getEventByMatingId(matingId) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .ilike('description', `%__mating_id:${matingId}__%`)
+      .maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async createEvent(event) {

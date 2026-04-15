@@ -56,13 +56,37 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
         microchip: formData.microchip || null,
       }
 
+      let savedPuppy
       if (puppy?.id) {
-        await db.updatePuppy(puppy.id, dataToSubmit)
+        savedPuppy = await db.updatePuppy(puppy.id, dataToSubmit)
         toast.success('Cucciolo aggiornato con successo')
       } else {
-        await db.createPuppy(dataToSubmit)
+        savedPuppy = await db.createPuppy(dataToSubmit)
         toast.success('Cucciolo aggiunto con successo')
       }
+
+      // Auto-crea entrata se il cucciolo viene venduto con un prezzo
+      const wasVenduto = puppy?.status === 'venduto'
+      const isNowVenduto = dataToSubmit.status === 'venduto'
+      const hasPrice = dataToSubmit.sale_price > 0
+      const statusChangedToVenduto = isNowVenduto && !wasVenduto
+
+      if (isNowVenduto && hasPrice && (!puppy?.id || statusChangedToVenduto)) {
+        const puppyLabel = formData.name?.trim()
+          ? formData.name.trim()
+          : `cucciolo ${formData.gender === 'femmina' ? '♀' : '♂'}`
+        await db.createIncome({
+          category: 'vendita_cucciolo',
+          description: `Vendita ${puppyLabel}`,
+          amount: dataToSubmit.sale_price,
+          income_date: dataToSubmit.sale_date || new Date().toISOString().split('T')[0],
+          puppy_id: savedPuppy?.id || null,
+          payment_method: null,
+          notes: formData.buyer_name ? `Acquirente: ${formData.buyer_name}` : null,
+        })
+        toast.success('Entrata registrata automaticamente in Finanze')
+      }
+
       onSuccess()
     } catch (error) {
       console.error('Error saving puppy:', error)

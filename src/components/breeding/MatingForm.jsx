@@ -68,10 +68,44 @@ export default function MatingForm({ mating, onClose, onSuccess }) {
         notes: formData.notes
       }
 
+      let savedMating
       if (mating) {
-        await db.updateMating(mating.id, dataToSave)
+        savedMating = await db.updateMating(mating.id, dataToSave)
       } else {
-        await db.createMating(dataToSave)
+        savedMating = await db.createMating(dataToSave)
+      }
+
+      // Sincronizza evento calendario per il parto previsto
+      if (savedMating?.expected_delivery) {
+        const female = dogs.find(d => d.id === formData.female_id)
+        const male = dogs.find(d => d.id === formData.male_id)
+        const eventTitle = `🐣 Parto previsto: ${female?.name || '?'} × ${male?.name || '?'}`
+        const eventDescription = `__mating_id:${savedMating.id}__`
+        const dogIds = [formData.female_id, formData.male_id].filter(Boolean)
+
+        // Cerca se esiste già un evento collegato
+        const existingEvent = await db.getEventByMatingId(savedMating.id)
+
+        if (existingEvent) {
+          // Aggiorna data se cambiata
+          if (existingEvent.event_date !== savedMating.expected_delivery) {
+            await db.updateEvent(existingEvent.id, {
+              event_date: savedMating.expected_delivery,
+              title: eventTitle,
+            })
+          }
+        } else {
+          // Crea nuovo evento
+          await db.createEvent({
+            title: eventTitle,
+            description: eventDescription,
+            event_date: savedMating.expected_delivery,
+            event_type: 'parto_stimato',
+            dog_ids: dogIds,
+            completed: false,
+            reminder_days: 7,
+          })
+        }
       }
 
       onSuccess()
