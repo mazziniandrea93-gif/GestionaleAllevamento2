@@ -171,9 +171,24 @@ function DogHistory({ dogEvents, heatCycles }) {
 }
 
 function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
+  const queryClient = useQueryClient()
+
+  // --- Calore reale ---
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ start_date: '', end_date: '', notes: '' })
+
+  // --- Calore stimato (manuale) ---
+  const [editingEstimated, setEditingEstimated] = useState(false)
+  const [estimatedInput, setEstimatedInput] = useState('')
+  const [savingEstimated, setSavingEstimated] = useState(false)
+
+  // Recupera l'evento calore_stimato dal calendario per questo cane
+  const { data: heatEvent, refetch: refetchHeatEvent } = useQuery({
+    queryKey: ['heatEvent', dogId],
+    queryFn: () => db.getHeatEventByDogId(dogId),
+    enabled: !!dogId,
+  })
 
   // Calcola statistiche sugli intercicli
   const realDates = [...heatCycles]
@@ -181,7 +196,7 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
     .sort((a, b) => b - a)
 
   let avgDays = null
-  let nextHeatDate = null
+  let autoNextDate = null
 
   if (realDates.length >= 2) {
     const diffs = []
@@ -189,17 +204,52 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
       diffs.push((realDates[i] - realDates[i + 1]) / (1000 * 60 * 60 * 24))
     }
     avgDays = Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length)
-    nextHeatDate = new Date(realDates[0].getTime() + avgDays * 24 * 60 * 60 * 1000)
+    autoNextDate = new Date(realDates[0].getTime() + avgDays * 24 * 60 * 60 * 1000)
   } else if (realDates.length === 1) {
     avgDays = 180
-    nextHeatDate = new Date(realDates[0].getTime() + 180 * 24 * 60 * 60 * 1000)
+    autoNextDate = new Date(realDates[0].getTime() + 180 * 24 * 60 * 60 * 1000)
   }
 
-  const isPast = nextHeatDate && nextHeatDate < new Date()
-  const daysToNext = nextHeatDate
-    ? Math.round((nextHeatDate - new Date()) / (1000 * 60 * 60 * 24))
-    : null
+  // Data mostrata: quella nel calendario (se esiste) altrimenti quella auto-calcolata
+  const calendarDateStr = heatEvent?.event_date?.split('T')[0] || null
+  const displayDateStr = calendarDateStr || (autoNextDate ? autoNextDate.toISOString().split('T')[0] : null)
+  const displayDate = displayDateStr ? new Date(displayDateStr + 'T00:00:00') : null
+  const isPast = displayDate && displayDate < new Date()
+  const daysToNext = displayDate ? Math.round((displayDate - new Date()) / (1000 * 60 * 60 * 24)) : null
 
+  // --- Salva calore stimato nel calendario ---
+  async function handleSaveEstimated(e) {
+    e.preventDefault()
+    setSavingEstimated(true)
+    try {
+      const eventTitle = `Calore stimato: ${dogName}`
+      const eventDescription = `__heat_dog:${dogId}__`
+      if (heatEvent) {
+        await db.updateEvent(heatEvent.id, { event_date: estimatedInput, title: eventTitle })
+      } else {
+        await db.createEvent({
+          title: eventTitle,
+          description: eventDescription,
+          event_date: estimatedInput,
+          event_type: 'calore_stimato',
+          dog_ids: [dogId],
+          completed: false,
+          reminder_days: 7,
+        })
+      }
+      toast.success('Calore stimato aggiornato nel calendario')
+      setEditingEstimated(false)
+      refetchHeatEvent()
+      queryClient.invalidateQueries(['events'])
+    } catch (err) {
+      console.error(err)
+      toast.error('Errore nel salvataggio')
+    } finally {
+      setSavingEstimated(false)
+    }
+  }
+
+  // --- Salva calore reale + aggiorna automaticamente il stimato ---
   async function handleSave(e) {
     e.preventDefault()
     setSaving(true)
@@ -215,34 +265,31 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
         notes: form.notes || null,
       })
 
-      // Calcola prossimo calore stimato (includi il nuovo ciclo appena aggiunto)
+      // Ricalcola prossimo calore includendo il nuovo ciclo
       const allDates = [...heatCycles.map(h => new Date(h.start_date)), new Date(form.start_date)]
         .sort((a, b) => b - a)
-
-      let nextHeatDate = null
+      let computedNext
       if (allDates.length >= 2) {
         const diffs = []
         for (let i = 0; i < allDates.length - 1; i++) {
           diffs.push((allDates[i] - allDates[i + 1]) / (1000 * 60 * 60 * 24))
         }
         const avg = Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length)
-        nextHeatDate = new Date(allDates[0].getTime() + avg * 24 * 60 * 60 * 1000)
+        computedNext = new Date(allDates[0].getTime() + avg * 24 * 60 * 60 * 1000)
       } else {
-        nextHeatDate = new Date(new Date(form.start_date).getTime() + 180 * 24 * 60 * 60 * 1000)
+        computedNext = new Date(new Date(form.start_date).getTime() + 180 * 24 * 60 * 60 * 1000)
       }
 
-      // Sincronizza evento calendario calore_stimato
-      const nextHeatStr = nextHeatDate.toISOString().split('T')[0]
+      const nextStr = computedNext.toISOString().split('T')[0]
       const eventTitle = `Calore stimato: ${dogName}`
-      const eventDescription = `__heat_dog:${dogId}__`
       const existingEvent = await db.getHeatEventByDogId(dogId)
       if (existingEvent) {
-        await db.updateEvent(existingEvent.id, { event_date: nextHeatStr, title: eventTitle })
+        await db.updateEvent(existingEvent.id, { event_date: nextStr, title: eventTitle })
       } else {
         await db.createEvent({
           title: eventTitle,
-          description: eventDescription,
-          event_date: nextHeatStr,
+          description: `__heat_dog:${dogId}__`,
+          event_date: nextStr,
           event_type: 'calore_stimato',
           dog_ids: [dogId],
           completed: false,
@@ -254,6 +301,8 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
       setForm({ start_date: '', end_date: '', notes: '' })
       setShowForm(false)
       onAdded()
+      refetchHeatEvent()
+      queryClient.invalidateQueries(['events'])
     } catch (err) {
       console.error(err)
       toast.error('Errore nel salvataggio')
@@ -265,9 +314,98 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
   return (
     <div className="space-y-6">
 
-      {/* Header */}
+      {/* ── CALORE STIMATO ── */}
+      <div className={`rounded-2xl border-2 p-5 ${isPast ? 'bg-red-50 border-red-200' : 'bg-pink-50 border-pink-200'}`}>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${isPast ? 'bg-red-100' : 'bg-pink-100'}`}>
+              <Heart className={`w-5 h-5 ${isPast ? 'text-red-500' : 'text-pink-500'}`} />
+            </div>
+            <div>
+              <p className={`text-xs font-bold uppercase mb-0.5 ${isPast ? 'text-red-400' : 'text-pink-400'}`}>
+                Prossimo calore stimato
+              </p>
+              {displayDate ? (
+                <>
+                  <p className={`text-xl font-black ${isPast ? 'text-red-700' : 'text-pink-700'}`}>
+                    {format(displayDate, 'dd MMMM yyyy', { locale: it })}
+                  </p>
+                  <p className={`text-sm font-semibold mt-0.5 ${isPast ? 'text-red-500' : 'text-gray-500'}`}>
+                    {isPast ? `In ritardo di ${Math.abs(daysToNext)} giorni` : `Tra ${daysToNext} giorni`}
+                    {calendarDateStr
+                      ? ' · impostato manualmente'
+                      : realDates.length >= 2
+                        ? ' · media intercicli'
+                        : ' · stima 6 mesi'}
+                  </p>
+                </>
+              ) : (
+                <p className="text-gray-500 text-sm font-semibold">Nessuna data impostata</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setEstimatedInput(displayDateStr || '')
+              setEditingEstimated(v => !v)
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-pink-200 text-pink-600 rounded-xl font-bold text-sm hover:bg-pink-100 transition flex-shrink-0"
+          >
+            <Edit className="w-4 h-4" />
+            {editingEstimated ? 'Annulla' : displayDate ? 'Modifica' : 'Imposta'}
+          </button>
+        </div>
+
+        {editingEstimated && (
+          <form onSubmit={handleSaveEstimated} className="mt-4 flex gap-3 items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-pink-700 mb-1">Data calore stimato</label>
+              <input
+                type="date"
+                required
+                value={estimatedInput}
+                onChange={e => setEstimatedInput(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border-2 border-pink-300 focus:border-pink-500 focus:outline-none text-sm bg-white"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={savingEstimated}
+              className="px-4 py-2 bg-pink-500 text-white rounded-xl font-bold text-sm hover:bg-pink-600 transition disabled:opacity-50"
+            >
+              {savingEstimated ? 'Salvo…' : 'Salva nel calendario'}
+            </button>
+          </form>
+        )}
+      </div>
+
+      {/* ── STATISTICHE ── */}
+      {heatCycles.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-pink-50 border border-pink-100 rounded-2xl p-4 text-center">
+            <p className="text-xs font-bold text-pink-400 uppercase mb-1">Calori registrati</p>
+            <p className="text-3xl font-black text-pink-600">{heatCycles.length}</p>
+          </div>
+          {avgDays && (
+            <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 text-center">
+              <p className="text-xs font-bold text-purple-400 uppercase mb-1">Media interciclo</p>
+              <p className="text-3xl font-black text-purple-600">{avgDays}</p>
+              <p className="text-xs text-purple-400">giorni</p>
+            </div>
+          )}
+          {heatCycles[0]?.duration && (
+            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
+              <p className="text-xs font-bold text-rose-400 uppercase mb-1">Durata ultimo</p>
+              <p className="text-3xl font-black text-rose-600">{heatCycles[0].duration}</p>
+              <p className="text-xs text-rose-400">giorni</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CALORI REALI ── */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-black text-gray-900">Storico Calori</h3>
+        <h3 className="text-lg font-black text-gray-900">Calori reali</h3>
         <button
           onClick={() => setShowForm(v => !v)}
           className="flex items-center gap-2 px-4 py-2 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition text-sm shadow-sm"
@@ -277,10 +415,10 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
         </button>
       </div>
 
-      {/* Form aggiunta */}
+      {/* Form aggiunta calore reale */}
       {showForm && (
         <form onSubmit={handleSave} className="bg-pink-50 border-2 border-pink-200 rounded-2xl p-5 space-y-4">
-          <h4 className="font-bold text-pink-800">Nuovo calore</h4>
+          <h4 className="font-bold text-pink-800">Nuovo calore reale</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Data inizio *</label>
@@ -314,62 +452,14 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
         </form>
       )}
 
-      {/* Stats cards */}
-      {heatCycles.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="bg-pink-50 border border-pink-100 rounded-2xl p-4 text-center">
-            <p className="text-xs font-bold text-pink-400 uppercase mb-1">Calori registrati</p>
-            <p className="text-3xl font-black text-pink-600">{heatCycles.length}</p>
-          </div>
-          {avgDays && (
-            <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 text-center">
-              <p className="text-xs font-bold text-purple-400 uppercase mb-1">Media interciclo</p>
-              <p className="text-3xl font-black text-purple-600">{avgDays}</p>
-              <p className="text-xs text-purple-400">giorni</p>
-            </div>
-          )}
-          {heatCycles[0]?.duration && (
-            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
-              <p className="text-xs font-bold text-rose-400 uppercase mb-1">Durata ultimo</p>
-              <p className="text-3xl font-black text-rose-600">{heatCycles[0].duration}</p>
-              <p className="text-xs text-rose-400">giorni</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Prossimo calore stimato */}
-      {nextHeatDate && (
-        <div className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${isPast ? 'bg-red-50 border-red-300' : 'bg-pink-50 border-pink-200'}`}>
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${isPast ? 'bg-red-100' : 'bg-pink-100'}`}>
-            <Heart className={`w-6 h-6 ${isPast ? 'text-red-500' : 'text-pink-500'}`} />
-          </div>
-          <div className="flex-1">
-            <p className={`text-xs font-bold uppercase ${isPast ? 'text-red-400' : 'text-pink-400'}`}>
-              Prossimo calore stimato
-            </p>
-            <p className={`text-xl font-black ${isPast ? 'text-red-700' : 'text-pink-700'}`}>
-              {format(nextHeatDate, 'dd MMMM yyyy', { locale: it })}
-            </p>
-            <p className={`text-sm font-semibold mt-0.5 ${isPast ? 'text-red-500' : 'text-gray-500'}`}>
-              {isPast
-                ? `Atteso ${Math.abs(daysToNext)} giorni fa`
-                : `Tra ${daysToNext} giorni`}
-              {realDates.length >= 2 && ' · basato sulla media degli intercicli'}
-              {realDates.length === 1 && ' · stima di default 6 mesi'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Lista calori */}
+      {/* Lista calori reali */}
       {heatCycles.length === 0 && !showForm ? (
-        <div className="text-center py-10">
-          <div className="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Heart className="w-8 h-8 text-pink-400" />
+        <div className="text-center py-8">
+          <div className="w-14 h-14 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Heart className="w-7 h-7 text-pink-400" />
           </div>
           <p className="font-bold text-gray-700 mb-1">Nessun calore registrato</p>
-          <p className="text-gray-500 text-sm">Usa il pulsante in alto per aggiungere il primo calore</p>
+          <p className="text-gray-500 text-sm">Usa il pulsante per aggiungere il primo calore reale</p>
         </div>
       ) : (
         <div className="space-y-3">
