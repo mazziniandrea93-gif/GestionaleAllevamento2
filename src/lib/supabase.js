@@ -343,6 +343,16 @@ export const db = {
     }))
   },
 
+  async getHeatEventByDogId(dogId) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .ilike('description', `%__heat_dog:${dogId}__%`)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
   async getEventByMatingId(matingId) {
     const { data, error } = await supabase
       .from('events')

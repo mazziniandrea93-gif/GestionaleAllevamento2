@@ -170,7 +170,7 @@ function DogHistory({ dogEvents, heatCycles }) {
   )
 }
 
-function DogHeatTab({ heatCycles, dogId, onAdded }) {
+function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ start_date: '', end_date: '', notes: '' })
@@ -214,11 +214,48 @@ function DogHeatTab({ heatCycles, dogId, onAdded }) {
         duration,
         notes: form.notes || null,
       })
-      toast.success('Calore registrato')
+
+      // Calcola prossimo calore stimato (includi il nuovo ciclo appena aggiunto)
+      const allDates = [...heatCycles.map(h => new Date(h.start_date)), new Date(form.start_date)]
+        .sort((a, b) => b - a)
+
+      let nextHeatDate = null
+      if (allDates.length >= 2) {
+        const diffs = []
+        for (let i = 0; i < allDates.length - 1; i++) {
+          diffs.push((allDates[i] - allDates[i + 1]) / (1000 * 60 * 60 * 24))
+        }
+        const avg = Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length)
+        nextHeatDate = new Date(allDates[0].getTime() + avg * 24 * 60 * 60 * 1000)
+      } else {
+        nextHeatDate = new Date(new Date(form.start_date).getTime() + 180 * 24 * 60 * 60 * 1000)
+      }
+
+      // Sincronizza evento calendario calore_stimato
+      const nextHeatStr = nextHeatDate.toISOString().split('T')[0]
+      const eventTitle = `Calore stimato: ${dogName}`
+      const eventDescription = `__heat_dog:${dogId}__`
+      const existingEvent = await db.getHeatEventByDogId(dogId)
+      if (existingEvent) {
+        await db.updateEvent(existingEvent.id, { event_date: nextHeatStr, title: eventTitle })
+      } else {
+        await db.createEvent({
+          title: eventTitle,
+          description: eventDescription,
+          event_date: nextHeatStr,
+          event_type: 'calore_stimato',
+          dog_ids: [dogId],
+          completed: false,
+          reminder_days: 7,
+        })
+      }
+
+      toast.success('Calore registrato e calendario aggiornato')
       setForm({ start_date: '', end_date: '', notes: '' })
       setShowForm(false)
       onAdded()
     } catch (err) {
+      console.error(err)
       toast.error('Errore nel salvataggio')
     } finally {
       setSaving(false)
@@ -673,6 +710,7 @@ export default function DogDetail() {
           <DogHeatTab
             heatCycles={heatCycles}
             dogId={dog.id}
+            dogName={dog.name}
             onAdded={() => queryClient.invalidateQueries(['heatCycles', id])}
           />
         )}
