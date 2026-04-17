@@ -40,7 +40,11 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
     queryFn: () => db.getDogs(),
   })
 
-  const filteredDogs = dogs.filter(dog =>
+  const baseDogs = formData.event_type === 'calore_stimato'
+    ? dogs.filter(d => d.gender?.toLowerCase() === 'femmina' || d.gender?.toLowerCase() === 'f')
+    : dogs
+
+  const filteredDogs = baseDogs.filter(dog =>
     dog.name.toLowerCase().includes(dogSearch.toLowerCase()) ||
     (dog.breed && dog.breed.toLowerCase().includes(dogSearch.toLowerCase()))
   )
@@ -251,9 +255,12 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
             {/* Selezione cani con ricerca - multi-selezione */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Cani (opzionale)
+                {formData.event_type === 'calore_stimato' ? 'Femmina' : 'Cani (opzionale)'}
                 {formData.dog_ids.length > 0 && (
                   <span className="ml-2 text-primary-600 font-bold">{formData.dog_ids.length} selezionati</span>
+                )}
+                {formData.event_type === 'calore_stimato' && (
+                  <span className="ml-2 text-pink-500 text-xs font-semibold">· solo femmine</span>
                 )}
               </label>
 
