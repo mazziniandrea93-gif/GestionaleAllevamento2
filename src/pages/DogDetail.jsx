@@ -22,6 +22,10 @@ import {
   CheckCircle2,
   Clock,
   Plus,
+  User,
+  Star,
+  MessageSquare,
+  X,
 } from 'lucide-react'
 import { differenceInYears, differenceInMonths, format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -156,7 +160,7 @@ function DogHistory({ dogEvents, heatCycles }) {
                     )}
                   </div>
                   <p className="font-bold text-gray-900">{item.title}</p>
-                  {item.description && (
+                  {item.description && !item.description.includes('__heat_dog:') && (
                     <p className="text-sm text-gray-600 mt-0.5">{item.description}</p>
                   )}
                   <p className="text-xs text-gray-400 font-semibold mt-1">{dateStr}</p>
@@ -177,16 +181,20 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ start_date: '', end_date: '', notes: '' })
+  const [editingHeatId, setEditingHeatId] = useState(null)
+  const [editHeatForm, setEditHeatForm] = useState({ start_date: '', end_date: '', notes: '' })
 
-  // --- Calore stimato (manuale) ---
-  const [editingEstimated, setEditingEstimated] = useState(false)
-  const [estimatedInput, setEstimatedInput] = useState('')
+  // --- Calori stimati ---
+  const [showAddEstimated, setShowAddEstimated] = useState(false)
+  const [newEstimatedDate, setNewEstimatedDate] = useState('')
   const [savingEstimated, setSavingEstimated] = useState(false)
+  const [editingEventId, setEditingEventId] = useState(null)
+  const [editingEventDate, setEditingEventDate] = useState('')
 
-  // Recupera l'evento calore_stimato dal calendario per questo cane
-  const { data: heatEvent, refetch: refetchHeatEvent } = useQuery({
-    queryKey: ['heatEvent', dogId],
-    queryFn: () => db.getHeatEventByDogId(dogId),
+  // Recupera tutti gli eventi calore_stimato dal calendario per questo cane
+  const { data: heatEvents = [], refetch: refetchHeatEvents } = useQuery({
+    queryKey: ['heatEvents', dogId],
+    queryFn: () => db.getHeatEventsByDogId(dogId),
     enabled: !!dogId,
   })
 
@@ -210,37 +218,31 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
     autoNextDate = new Date(realDates[0].getTime() + 180 * 24 * 60 * 60 * 1000)
   }
 
-  // Data mostrata: quella nel calendario (se esiste) altrimenti quella auto-calcolata
-  const calendarDateStr = heatEvent?.event_date?.split('T')[0] || null
-  const displayDateStr = calendarDateStr || (autoNextDate ? autoNextDate.toISOString().split('T')[0] : null)
-  const displayDate = displayDateStr ? new Date(displayDateStr + 'T00:00:00') : null
-  const isPast = displayDate && displayDate < new Date()
-  const daysToNext = displayDate ? Math.round((displayDate - new Date()) / (1000 * 60 * 60 * 24)) : null
+  const suggestedDateStr = autoNextDate ? autoNextDate.toISOString().split('T')[0] : ''
 
-  // --- Salva calore stimato nel calendario ---
-  async function handleSaveEstimated(e) {
+  function invalidate() {
+    refetchHeatEvents()
+    queryClient.invalidateQueries(['events'])
+  }
+
+  // --- Aggiungi calore stimato ---
+  async function handleAddEstimated(e) {
     e.preventDefault()
     setSavingEstimated(true)
     try {
-      const eventTitle = `Calore stimato: ${dogName}`
-      const eventDescription = `__heat_dog:${dogId}__`
-      if (heatEvent) {
-        await db.updateEvent(heatEvent.id, { event_date: estimatedInput, title: eventTitle })
-      } else {
-        await db.createEvent({
-          title: eventTitle,
-          description: eventDescription,
-          event_date: estimatedInput,
-          event_type: 'calore_stimato',
-          dog_ids: [dogId],
-          completed: false,
-          reminder_days: 7,
-        })
-      }
-      toast.success('Calore stimato aggiornato nel calendario')
-      setEditingEstimated(false)
-      refetchHeatEvent()
-      queryClient.invalidateQueries(['events'])
+      await db.createEvent({
+        title: `Calore stimato: ${dogName}`,
+        description: `__heat_dog:${dogId}__`,
+        event_date: newEstimatedDate,
+        event_type: 'calore_stimato',
+        dog_ids: [dogId],
+        completed: false,
+        reminder_days: 7,
+      })
+      toast.success('Calore stimato aggiunto al calendario')
+      setShowAddEstimated(false)
+      setNewEstimatedDate('')
+      invalidate()
     } catch (err) {
       console.error(err)
       toast.error('Errore nel salvataggio')
@@ -249,23 +251,93 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
     }
   }
 
-  // --- Salva calore reale + aggiorna automaticamente il stimato ---
+  // --- Modifica calore stimato ---
+  async function handleEditEstimated(e) {
+    e.preventDefault()
+    setSavingEstimated(true)
+    try {
+      await db.updateEvent(editingEventId, {
+        event_date: editingEventDate,
+        title: `Calore stimato: ${dogName}`,
+      })
+      toast.success('Calore stimato aggiornato')
+      setEditingEventId(null)
+      invalidate()
+    } catch (err) {
+      console.error(err)
+      toast.error('Errore nel salvataggio')
+    } finally {
+      setSavingEstimated(false)
+    }
+  }
+
+  // --- Elimina calore stimato ---
+  async function handleDeleteEstimated(id) {
+    try {
+      await db.deleteEvent(id)
+      toast.success('Calore stimato rimosso')
+      invalidate()
+    } catch (err) {
+      console.error(err)
+      toast.error('Errore nella rimozione')
+    }
+  }
+
+  // --- Modifica calore reale ---
+  async function handleEditHeat(e) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const duration_days = editHeatForm.end_date
+        ? Math.round((new Date(editHeatForm.end_date) - new Date(editHeatForm.start_date)) / (1000 * 60 * 60 * 24))
+        : null
+      await db.updateHeatCycle(editingHeatId, {
+        start_date: editHeatForm.start_date,
+        end_date: editHeatForm.end_date || null,
+        duration_days,
+        notes: editHeatForm.notes || null,
+      })
+      toast.success('Calore aggiornato')
+      setEditingHeatId(null)
+      onAdded()
+    } catch (err) {
+      console.error(err)
+      toast.error('Errore nel salvataggio')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // --- Elimina calore reale ---
+  async function handleDeleteHeat(id) {
+    if (!window.confirm('Eliminare questo calore reale?')) return
+    try {
+      await db.deleteHeatCycle(id)
+      toast.success('Calore eliminato')
+      onAdded()
+    } catch (err) {
+      console.error(err)
+      toast.error('Errore nella rimozione')
+    }
+  }
+
+  // --- Salva calore reale + aggiunge automaticamente il prossimo stimato ---
   async function handleSave(e) {
     e.preventDefault()
     setSaving(true)
     try {
-      const duration = form.end_date
+      const duration_days = form.end_date
         ? Math.round((new Date(form.end_date) - new Date(form.start_date)) / (1000 * 60 * 60 * 24))
         : null
       await db.createHeatCycle({
         dog_id: dogId,
         start_date: form.start_date,
         end_date: form.end_date || null,
-        duration,
+        duration_days,
         notes: form.notes || null,
       })
 
-      // Ricalcola prossimo calore includendo il nuovo ciclo
+      // Calcola prossimo calore includendo il nuovo ciclo
       const allDates = [...heatCycles.map(h => new Date(h.start_date)), new Date(form.start_date)]
         .sort((a, b) => b - a)
       let computedNext
@@ -280,32 +352,24 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
         computedNext = new Date(new Date(form.start_date).getTime() + 180 * 24 * 60 * 60 * 1000)
       }
 
-      const nextStr = computedNext.toISOString().split('T')[0]
-      const eventTitle = `Calore stimato: ${dogName}`
-      const existingEvent = await db.getHeatEventByDogId(dogId)
-      if (existingEvent) {
-        await db.updateEvent(existingEvent.id, { event_date: nextStr, title: eventTitle })
-      } else {
-        await db.createEvent({
-          title: eventTitle,
-          description: `__heat_dog:${dogId}__`,
-          event_date: nextStr,
-          event_type: 'calore_stimato',
-          dog_ids: [dogId],
-          completed: false,
-          reminder_days: 7,
-        })
-      }
+      await db.createEvent({
+        title: `Calore stimato: ${dogName}`,
+        description: `__heat_dog:${dogId}__`,
+        event_date: computedNext.toISOString().split('T')[0],
+        event_type: 'calore_stimato',
+        dog_ids: [dogId],
+        completed: false,
+        reminder_days: 7,
+      })
 
-      toast.success('Calore registrato e calendario aggiornato')
+      toast.success('Calore registrato e nuovo stimato aggiunto al calendario')
       setForm({ start_date: '', end_date: '', notes: '' })
       setShowForm(false)
       onAdded()
-      refetchHeatEvent()
-      queryClient.invalidateQueries(['events'])
+      invalidate()
     } catch (err) {
       console.error(err)
-      toast.error('Errore nel salvataggio')
+      toast.error(err?.message || JSON.stringify(err) || 'Errore')
     } finally {
       setSaving(false)
     }
@@ -314,68 +378,102 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
   return (
     <div className="space-y-6">
 
-      {/* ── CALORE STIMATO ── */}
-      <div className={`rounded-2xl border-2 p-5 ${isPast ? 'bg-red-50 border-red-200' : 'bg-pink-50 border-pink-200'}`}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${isPast ? 'bg-red-100' : 'bg-pink-100'}`}>
-              <Heart className={`w-5 h-5 ${isPast ? 'text-red-500' : 'text-pink-500'}`} />
-            </div>
-            <div>
-              <p className={`text-xs font-bold uppercase mb-0.5 ${isPast ? 'text-red-400' : 'text-pink-400'}`}>
-                Prossimo calore stimato
-              </p>
-              {displayDate ? (
-                <>
-                  <p className={`text-xl font-black ${isPast ? 'text-red-700' : 'text-pink-700'}`}>
-                    {format(displayDate, 'dd MMMM yyyy', { locale: it })}
-                  </p>
-                  <p className={`text-sm font-semibold mt-0.5 ${isPast ? 'text-red-500' : 'text-gray-500'}`}>
-                    {isPast ? `In ritardo di ${Math.abs(daysToNext)} giorni` : `Tra ${daysToNext} giorni`}
-                    {calendarDateStr
-                      ? ' · impostato manualmente'
-                      : realDates.length >= 2
-                        ? ' · media intercicli'
-                        : ' · stima 6 mesi'}
-                  </p>
-                </>
-              ) : (
-                <p className="text-gray-500 text-sm font-semibold">Nessuna data impostata</p>
-              )}
-            </div>
-          </div>
+      {/* ── CALORI STIMATI ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-gray-900">Calori stimati</h3>
           <button
             onClick={() => {
-              setEstimatedInput(displayDateStr || '')
-              setEditingEstimated(v => !v)
+              setNewEstimatedDate(suggestedDateStr)
+              setShowAddEstimated(v => !v)
             }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-pink-200 text-pink-600 rounded-xl font-bold text-sm hover:bg-pink-100 transition flex-shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition text-sm shadow-sm"
           >
-            <Edit className="w-4 h-4" />
-            {editingEstimated ? 'Annulla' : displayDate ? 'Modifica' : 'Imposta'}
+            <Plus className="w-4 h-4" />
+            Aggiungi stima
           </button>
         </div>
 
-        {editingEstimated && (
-          <form onSubmit={handleSaveEstimated} className="mt-4 flex gap-3 items-end">
+        {showAddEstimated && (
+          <form onSubmit={handleAddEstimated} className="bg-pink-50 border-2 border-pink-200 rounded-2xl p-4 flex gap-3 items-end">
             <div className="flex-1">
               <label className="block text-xs font-bold text-pink-700 mb-1">Data calore stimato</label>
               <input
                 type="date"
                 required
-                value={estimatedInput}
-                onChange={e => setEstimatedInput(e.target.value)}
+                value={newEstimatedDate}
+                onChange={e => setNewEstimatedDate(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border-2 border-pink-300 focus:border-pink-500 focus:outline-none text-sm bg-white"
               />
             </div>
-            <button
-              type="submit"
-              disabled={savingEstimated}
-              className="px-4 py-2 bg-pink-500 text-white rounded-xl font-bold text-sm hover:bg-pink-600 transition disabled:opacity-50"
-            >
-              {savingEstimated ? 'Salvo…' : 'Salva nel calendario'}
+            <button type="button" onClick={() => setShowAddEstimated(false)}
+              className="px-4 py-2 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-sm">
+              Annulla
+            </button>
+            <button type="submit" disabled={savingEstimated}
+              className="px-4 py-2 bg-pink-500 text-white rounded-xl font-bold text-sm hover:bg-pink-600 transition disabled:opacity-50">
+              {savingEstimated ? 'Salvo…' : 'Salva'}
             </button>
           </form>
+        )}
+
+        {heatEvents.length === 0 && !showAddEstimated ? (
+          <p className="text-gray-500 text-sm py-2">Nessun calore stimato nel calendario. Usare il pulsante per aggiungerne uno.</p>
+        ) : (
+          <div className="space-y-2">
+            {heatEvents.map(ev => {
+              const evDate = new Date(ev.event_date.split('T')[0] + 'T00:00:00')
+              const evPast = evDate < new Date()
+              const evDays = Math.round((evDate - new Date()) / (1000 * 60 * 60 * 24))
+              return (
+                <div key={ev.id} className={`rounded-2xl border-2 p-4 ${evPast ? 'bg-red-50 border-red-200' : 'bg-pink-50 border-pink-200'}`}>
+                  {editingEventId === ev.id ? (
+                    <form onSubmit={handleEditEstimated} className="flex gap-3 items-end">
+                      <div className="flex-1">
+                        <input
+                          type="date"
+                          required
+                          value={editingEventDate}
+                          onChange={e => setEditingEventDate(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border-2 border-pink-300 focus:border-pink-500 focus:outline-none text-sm bg-white"
+                        />
+                      </div>
+                      <button type="button" onClick={() => setEditingEventId(null)}
+                        className="px-3 py-2 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-sm">
+                        Annulla
+                      </button>
+                      <button type="submit" disabled={savingEstimated}
+                        className="px-3 py-2 bg-pink-500 text-white rounded-xl font-bold text-sm hover:bg-pink-600 disabled:opacity-50">
+                        Salva
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${evPast ? 'bg-red-100' : 'bg-pink-100'}`}>
+                        <Heart className={`w-4 h-4 ${evPast ? 'text-red-500' : 'text-pink-500'}`} />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-bold ${evPast ? 'text-red-700' : 'text-pink-700'}`}>
+                          {format(evDate, 'dd MMMM yyyy', { locale: it })}
+                        </p>
+                        <p className={`text-xs font-semibold ${evPast ? 'text-red-400' : 'text-gray-400'}`}>
+                          {evPast ? `In ritardo di ${Math.abs(evDays)} giorni` : `Tra ${evDays} giorni`}
+                        </p>
+                      </div>
+                      <button onClick={() => { setEditingEventId(ev.id); setEditingEventDate(ev.event_date.split('T')[0]) }}
+                        className="p-2 hover:bg-white rounded-xl transition text-pink-500">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteEstimated(ev.id)}
+                        className="p-2 hover:bg-white rounded-xl transition text-red-400">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 
@@ -393,10 +491,10 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
               <p className="text-xs text-purple-400">giorni</p>
             </div>
           )}
-          {heatCycles[0]?.duration && (
+          {heatCycles[0]?.duration_days && (
             <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
               <p className="text-xs font-bold text-rose-400 uppercase mb-1">Durata ultimo</p>
-              <p className="text-3xl font-black text-rose-600">{heatCycles[0].duration}</p>
+              <p className="text-3xl font-black text-rose-600">{heatCycles[0].duration_days}</p>
               <p className="text-xs text-rose-400">giorni</p>
             </div>
           )}
@@ -464,32 +562,495 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
       ) : (
         <div className="space-y-3">
           {heatCycles.map(h => {
-            const dur = h.end_date
-              ? Math.round((new Date(h.end_date) - new Date(h.start_date)) / (1000 * 60 * 60 * 24))
-              : h.duration
+            const dur = h.duration_days ?? null
             return (
-              <div key={h.id} className="flex items-start gap-4 p-4 bg-pink-50 border border-pink-200 rounded-2xl">
-                <div className="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center flex-shrink-0">
-                  <Heart className="w-5 h-5 text-pink-500" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-pink-200 text-pink-800">Calore reale</span>
+              <div key={h.id} className="bg-pink-50 border border-pink-200 rounded-2xl p-4">
+                {editingHeatId === h.id ? (
+                  <form onSubmit={handleEditHeat} className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-pink-700 mb-1">Data inizio *</label>
+                        <input type="date" required value={editHeatForm.start_date}
+                          onChange={e => setEditHeatForm(f => ({ ...f, start_date: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-pink-400 focus:outline-none text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-pink-700 mb-1">Data fine (opz.)</label>
+                        <input type="date" value={editHeatForm.end_date}
+                          onChange={e => setEditHeatForm(f => ({ ...f, end_date: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-pink-400 focus:outline-none text-sm" />
+                      </div>
+                    </div>
+                    <input type="text" value={editHeatForm.notes} placeholder="Note…"
+                      onChange={e => setEditHeatForm(f => ({ ...f, notes: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-pink-400 focus:outline-none text-sm" />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setEditingHeatId(null)}
+                        className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-sm">
+                        Annulla
+                      </button>
+                      <button type="submit" disabled={saving}
+                        className="flex-1 px-3 py-2 bg-pink-500 text-white rounded-xl font-bold text-sm hover:bg-pink-600 disabled:opacity-50">
+                        {saving ? 'Salvo…' : 'Salva'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center flex-shrink-0">
+                      <Heart className="w-5 h-5 text-pink-500" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-pink-200 text-pink-800">Calore reale</span>
+                      </div>
+                      <p className="font-bold text-gray-900">
+                        {format(new Date(h.start_date + 'T00:00:00'), 'dd MMM yyyy', { locale: it })}
+                        {h.end_date && (
+                          <span className="text-gray-500 font-semibold text-sm">
+                            {' '}→ {format(new Date(h.end_date + 'T00:00:00'), 'dd MMM yyyy', { locale: it })}
+                          </span>
+                        )}
+                      </p>
+                      {dur && <p className="text-xs text-gray-500 mt-0.5">Durata: {dur} giorni</p>}
+                      {h.notes && <p className="text-sm text-gray-600 mt-0.5">{h.notes}</p>}
+                    </div>
+                    <button onClick={() => { setEditingHeatId(h.id); setEditHeatForm({ start_date: h.start_date, end_date: h.end_date || '', notes: h.notes || '' }) }}
+                      className="p-2 hover:bg-white rounded-xl transition text-pink-500 flex-shrink-0">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDeleteHeat(h.id)}
+                      className="p-2 hover:bg-white rounded-xl transition text-red-400 flex-shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <p className="font-bold text-gray-900">
-                    {format(new Date(h.start_date + 'T00:00:00'), 'dd MMM yyyy', { locale: it })}
-                    {h.end_date && (
-                      <span className="text-gray-500 font-semibold text-sm">
-                        {' '}→ {format(new Date(h.end_date + 'T00:00:00'), 'dd MMM yyyy', { locale: it })}
-                      </span>
-                    )}
-                  </p>
-                  {dur && <p className="text-xs text-gray-500 mt-0.5">Durata: {dur} giorni</p>}
-                  {h.notes && <p className="text-sm text-gray-600 mt-0.5">{h.notes}</p>}
-                </div>
+                )}
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const GRADES = ['Eccellente', 'Molto Buono', 'Buono', 'Sufficiente', 'Qualificato', 'Fuori Concorso', 'Non Classificato']
+
+const GRADE_COLORS = {
+  'Eccellente':       'bg-emerald-100 text-emerald-700',
+  'Molto Buono':      'bg-blue-100 text-blue-700',
+  'Buono':            'bg-cyan-100 text-cyan-700',
+  'Sufficiente':      'bg-yellow-100 text-yellow-700',
+  'Qualificato':      'bg-purple-100 text-purple-700',
+  'Fuori Concorso':   'bg-gray-100 text-gray-600',
+  'Non Classificato': 'bg-red-100 text-red-600',
+}
+
+function DogJudgesTab({ dogId }) {
+  const queryClient = useQueryClient()
+
+  const { data: judges = [], refetch: refetchJudges } = useQuery({
+    queryKey: ['judges'],
+    queryFn: db.getJudges,
+  })
+
+  const { data: judgments = [], refetch: refetchJudgments } = useQuery({
+    queryKey: ['judgments', dogId],
+    queryFn: () => db.getJudgments(dogId),
+    enabled: !!dogId,
+  })
+
+  const emptyForm = {
+    judge_id: '',
+    judgment_date: new Date().toISOString().split('T')[0],
+    show_name: '',
+    grade: '',
+    judgment_text: '',
+    our_comments: '',
+  }
+
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+  const [judgeSearch, setJudgeSearch] = useState('')
+  const [showNewJudge, setShowNewJudge] = useState(false)
+  const [newJudge, setNewJudge] = useState({ name: '', nationality: '', specialization: '' })
+  const [savingJudge, setSavingJudge] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState(emptyForm)
+  const [deletingId, setDeletingId] = useState(null)
+
+  const filteredJudges = judges.filter(j =>
+    j.name.toLowerCase().includes(judgeSearch.toLowerCase())
+  )
+
+  async function handleCreateJudge(e) {
+    e.preventDefault()
+    setSavingJudge(true)
+    try {
+      const created = await db.createJudge(newJudge)
+      toast.success('Giudice creato')
+      await refetchJudges()
+      setForm(f => ({ ...f, judge_id: created.id }))
+      setJudgeSearch(created.name)
+      setShowNewJudge(false)
+      setNewJudge({ name: '', nationality: '', specialization: '' })
+    } catch (err) {
+      toast.error('Errore nella creazione del giudice')
+    } finally {
+      setSavingJudge(false)
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault()
+    if (!form.judge_id) { toast.error('Seleziona un giudice'); return }
+    setSaving(true)
+    try {
+      await db.createJudgment({ ...form, dog_id: dogId })
+      toast.success('Giudizio salvato')
+      setForm(emptyForm)
+      setJudgeSearch('')
+      setShowForm(false)
+      refetchJudgments()
+    } catch (err) {
+      toast.error('Errore nel salvataggio')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleUpdate(e) {
+    e.preventDefault()
+    if (!editForm.judge_id) { toast.error('Seleziona un giudice'); return }
+    setSaving(true)
+    try {
+      await db.updateJudgment(editingId, editForm)
+      toast.success('Giudizio aggiornato')
+      setEditingId(null)
+      refetchJudgments()
+    } catch (err) {
+      toast.error('Errore nel salvataggio')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm('Eliminare questo giudizio?')) return
+    setDeletingId(id)
+    try {
+      await db.deleteJudgment(id)
+      toast.success('Giudizio eliminato')
+      refetchJudgments()
+    } catch (err) {
+      toast.error('Errore nella rimozione')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  function JudgeSelector({ value, onSelect, search, onSearch }) {
+    const [open, setOpen] = useState(false)
+    const selected = judges.find(j => j.id === value)
+    return (
+      <div className="relative">
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Giudice *</label>
+        <div
+          className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus-within:border-yellow-400 bg-white cursor-pointer flex items-center gap-2"
+          onClick={() => setOpen(v => !v)}
+        >
+          <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          {selected
+            ? <span className="font-semibold text-gray-900 text-sm">{selected.name}{selected.nationality ? ` (${selected.nationality})` : ''}</span>
+            : <span className="text-gray-400 text-sm">Cerca o seleziona giudice…</span>
+          }
+        </div>
+        {open && (
+          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-2xl shadow-lg overflow-hidden">
+            <div className="p-2 border-b border-gray-100">
+              <input
+                autoFocus
+                type="text"
+                placeholder="Cerca giudice…"
+                value={search}
+                onChange={e => onSearch(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-yellow-400"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {filteredJudges.length === 0 ? (
+                <div className="px-3 py-3 text-sm text-gray-400 text-center">Nessun giudice trovato</div>
+              ) : (
+                filteredJudges.map(j => (
+                  <button
+                    key={j.id}
+                    type="button"
+                    onClick={() => { onSelect(j.id); onSearch(j.name); setOpen(false) }}
+                    className="w-full text-left px-3 py-2.5 hover:bg-yellow-50 transition text-sm"
+                  >
+                    <p className="font-semibold text-gray-900">{j.name}</p>
+                    {(j.nationality || j.specialization) && (
+                      <p className="text-xs text-gray-400">{[j.nationality, j.specialization].filter(Boolean).join(' · ')}</p>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="border-t border-gray-100 p-2">
+              <button
+                type="button"
+                onClick={() => { setShowNewJudge(true); setOpen(false) }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-yellow-700 hover:bg-yellow-50 transition"
+              >
+                <Plus className="w-4 h-4" /> Crea nuovo giudice
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function JudgmentForm({ formData, onSubmit, onChange, onJudgeSelect, search, onSearchChange, submitLabel }) {
+    return (
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <JudgeSelector
+            value={formData.judge_id}
+            onSelect={id => onChange('judge_id', id)}
+            search={search}
+            onSearch={onSearchChange}
+          />
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Data esposizione *</label>
+            <input type="date" required value={formData.judgment_date}
+              onChange={e => onChange('judgment_date', e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Nome esposizione</label>
+            <input type="text" value={formData.show_name} placeholder="Es: Esposizione Internazionale Milano"
+              onChange={e => onChange('show_name', e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Qualifica</label>
+            <select value={formData.grade} onChange={e => onChange('grade', e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm bg-white">
+              <option value="">— Seleziona qualifica —</option>
+              {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Giudizio del giudice</label>
+          <textarea rows={3} value={formData.judgment_text} placeholder="Testo del giudizio ufficiale…"
+            onChange={e => onChange('judgment_text', e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm resize-none" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Nostri commenti</label>
+          <textarea rows={2} value={formData.our_comments} placeholder="Note personali, considerazioni interne…"
+            onChange={e => onChange('our_comments', e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm resize-none" />
+        </div>
+        <div className="flex gap-3">
+          <button type="button"
+            onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); setJudgeSearch('') }}
+            className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-sm">
+            Annulla
+          </button>
+          <button type="submit" disabled={saving}
+            className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 text-sm disabled:opacity-50">
+            {saving ? 'Salvataggio…' : submitLabel}
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-black text-gray-900">Giudizi</h3>
+        {!showForm && !editingId && (
+          <button
+            onClick={() => { setShowForm(true); setForm(emptyForm); setJudgeSearch('') }}
+            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 transition text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Aggiungi giudizio
+          </button>
+        )}
+      </div>
+
+      {/* Modal crea nuovo giudice */}
+      {showNewJudge && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h4 className="text-lg font-black text-gray-900">Nuovo giudice</h4>
+              <button onClick={() => setShowNewJudge(false)} className="p-2 hover:bg-gray-100 rounded-xl">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateJudge} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Nome *</label>
+                <input type="text" required value={newJudge.name} placeholder="Nome e cognome"
+                  onChange={e => setNewJudge(f => ({ ...f, name: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Nazionalità</label>
+                <input type="text" value={newJudge.nationality} placeholder="Es: Italiano, Tedesco…"
+                  onChange={e => setNewJudge(f => ({ ...f, nationality: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Specializzazione</label>
+                <input type="text" value={newJudge.specialization} placeholder="Es: All-round, Golden Retriever…"
+                  onChange={e => setNewJudge(f => ({ ...f, specialization: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm" />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setShowNewJudge(false)}
+                  className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-sm">
+                  Annulla
+                </button>
+                <button type="submit" disabled={savingJudge}
+                  className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 text-sm disabled:opacity-50">
+                  {savingJudge ? 'Salvo…' : 'Crea giudice'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Form aggiunta */}
+      {showForm && (
+        <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-5">
+          <h4 className="font-bold text-yellow-800 mb-4">Nuovo giudizio</h4>
+          <JudgmentForm
+            formData={form}
+            onSubmit={handleSave}
+            onChange={(key, val) => setForm(f => ({ ...f, [key]: val }))}
+            onJudgeSelect={id => setForm(f => ({ ...f, judge_id: id }))}
+            search={judgeSearch}
+            onSearchChange={setJudgeSearch}
+            submitLabel="Salva giudizio"
+          />
+        </div>
+      )}
+
+      {/* Lista giudizi */}
+      {judgments.length === 0 && !showForm ? (
+        <div className="text-center py-10">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Trophy className="w-8 h-8 text-yellow-500" />
+          </div>
+          <p className="font-bold text-gray-700 mb-1">Nessun giudizio registrato</p>
+          <p className="text-gray-500 text-sm">Aggiungi il primo giudizio tramite il pulsante in alto</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {judgments.map(j => (
+            <div key={j.id} className="bg-white border-2 border-gray-100 rounded-2xl p-5 shadow-sm">
+              {editingId === j.id ? (
+                <div>
+                  <h4 className="font-bold text-yellow-800 mb-4">Modifica giudizio</h4>
+                  <JudgmentForm
+                    formData={editForm}
+                    onSubmit={handleUpdate}
+                    onChange={(key, val) => setEditForm(f => ({ ...f, [key]: val }))}
+                    onJudgeSelect={id => setEditForm(f => ({ ...f, judge_id: id }))}
+                    search={judgeSearch}
+                    onSearchChange={setJudgeSearch}
+                    submitLabel="Aggiorna"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                        <User className="w-5 h-5 text-yellow-600" />
+                      </div>
+                      <div>
+                        <p className="font-black text-gray-900">{j.judge?.name || '—'}</p>
+                        {(j.judge?.nationality || j.judge?.specialization) && (
+                          <p className="text-xs text-gray-400">{[j.judge.nationality, j.judge.specialization].filter(Boolean).join(' · ')}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => {
+                          setEditingId(j.id)
+                          setEditForm({
+                            judge_id: j.judge_id,
+                            judgment_date: j.judgment_date,
+                            show_name: j.show_name || '',
+                            grade: j.grade || '',
+                            judgment_text: j.judgment_text || '',
+                            our_comments: j.our_comments || '',
+                          })
+                          setJudgeSearch(j.judge?.name || '')
+                        }}
+                        className="p-2 hover:bg-yellow-50 rounded-xl transition text-yellow-600"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(j.id)}
+                        disabled={deletingId === j.id}
+                        className="p-2 hover:bg-red-50 rounded-xl transition text-red-400 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {j.grade && (
+                      <span className={`px-3 py-1 rounded-xl text-xs font-bold ${GRADE_COLORS[j.grade] || 'bg-gray-100 text-gray-600'}`}>
+                        <Star className="w-3 h-3 inline mr-1" />{j.grade}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400 font-semibold">
+                      {format(new Date(j.judgment_date + 'T00:00:00'), 'dd MMMM yyyy', { locale: it })}
+                    </span>
+                    {j.show_name && (
+                      <span className="text-xs text-gray-500 font-semibold">· {j.show_name}</span>
+                    )}
+                  </div>
+
+                  {j.judgment_text && (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
+                        <Trophy className="w-3 h-3" /> Giudizio ufficiale
+                      </p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{j.judgment_text}</p>
+                    </div>
+                  )}
+
+                  {j.our_comments && (
+                    <div className="bg-blue-50 rounded-xl p-3">
+                      <p className="text-xs font-bold text-blue-400 uppercase mb-1 flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" /> Nostri commenti
+                      </p>
+                      <p className="text-sm text-blue-800 whitespace-pre-wrap">{j.our_comments}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -599,6 +1160,7 @@ export default function DogDetail() {
     { id: 'salute', label: 'Salute' },
     { id: 'documenti', label: 'Documenti' },
     ...(isFemale ? [{ id: 'calori', label: 'Calori' }] : []),
+    { id: 'giudici', label: 'Giudici' },
     { id: 'storia', label: 'Storia' },
   ]
 
@@ -803,6 +1365,10 @@ export default function DogDetail() {
             dogName={dog.name}
             onAdded={() => queryClient.invalidateQueries(['heatCycles', id])}
           />
+        )}
+
+        {activeTab === 'giudici' && (
+          <DogJudgesTab dogId={dog.id} />
         )}
 
         {activeTab === 'storia' && (

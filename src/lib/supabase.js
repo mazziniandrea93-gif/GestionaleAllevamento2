@@ -108,14 +108,36 @@ export const db = {
   },
 
   async createHeatCycle(cycle) {
+    const userId = await getCurrentUserId()
     const { data, error } = await supabase
       .from('heat_cycles')
-      .insert([cycle])
+      .insert([{ ...cycle, user_id: userId }])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
+  },
+
+  async updateHeatCycle(id, updates) {
+    const { data, error } = await supabase
+      .from('heat_cycles')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteHeatCycle(id) {
+    const { error } = await supabase
+      .from('heat_cycles')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
   },
 
   // EXPENSES
@@ -351,6 +373,16 @@ export const db = {
       .maybeSingle()
     if (error) throw error
     return data
+  },
+
+  async getHeatEventsByDogId(dogId) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .ilike('description', `%__heat_dog:${dogId}__%`)
+      .order('event_date', { ascending: true })
+    if (error) throw error
+    return data || []
   },
 
   async getEventByMatingId(matingId) {
@@ -666,6 +698,96 @@ export const db = {
       .eq('id', id)
 
     if (error) throw error
+  },
+
+  // JUDGES
+  async getJudges() {
+    const { data, error } = await supabase
+      .from('judges')
+      .select('*')
+      .order('name')
+    if (error) throw error
+    return data
+  },
+
+  async createJudge(judge) {
+    const userId = await getCurrentUserId()
+    const { data, error } = await supabase
+      .from('judges')
+      .insert([{ ...judge, user_id: userId }])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async updateJudge(id, updates) {
+    const { data, error } = await supabase
+      .from('judges')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteJudge(id) {
+    const { error } = await supabase
+      .from('judges')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  // DOG JUDGMENTS
+  async getJudgments(dogId) {
+    const { data, error } = await supabase
+      .from('dog_judgments')
+      .select(`*, judge:judges(id, name, nationality, specialization)`)
+      .eq('dog_id', dogId)
+      .order('judgment_date', { ascending: false })
+    if (error) throw error
+    return data
+  },
+
+  async createJudgment(judgment) {
+    const userId = await getCurrentUserId()
+    const { data, error } = await supabase
+      .from('dog_judgments')
+      .insert([{ ...judgment, user_id: userId }])
+      .select(`*, judge:judges(id, name, nationality, specialization)`)
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async updateJudgment(id, updates) {
+    const { data, error } = await supabase
+      .from('dog_judgments')
+      .update(updates)
+      .eq('id', id)
+      .select(`*, judge:judges(id, name, nationality, specialization)`)
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteJudgment(id) {
+    const { error } = await supabase
+      .from('dog_judgments')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  async getAllJudgments() {
+    const { data, error } = await supabase
+      .from('dog_judgments')
+      .select(`*, judge:judges(id, name, nationality, specialization), dog:dogs(id, name, breed)`)
+      .order('judgment_date', { ascending: false })
+    if (error) throw error
+    return data
   },
 
   // SETTINGS

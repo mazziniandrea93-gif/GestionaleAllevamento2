@@ -14,6 +14,7 @@ import Finance from './pages/Finance'
 import Health from './pages/Health'
 import Calendar from './pages/Calendar'
 import Settings from './pages/Settings'
+import Judges from './pages/Judges'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +49,7 @@ function App() {
               <Route path="finance" element={<Finance />} />
               <Route path="health" element={<Health />} />
               <Route path="calendar" element={<Calendar />} />
+              <Route path="judges" element={<Judges />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>

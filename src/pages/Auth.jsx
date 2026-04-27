@@ -5,12 +5,38 @@ import toast from 'react-hot-toast'
 import { Dog, Mail, Lock, Building2 } from 'lucide-react'
 
 export function Auth() {
-  const [isLogin, setIsLogin] = useState(true)
+  const [view, setView] = useState('login') // 'login' | 'register' | 'forgot'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [kennelName, setKennelName] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  const isLogin = view === 'login'
+
+  function switchView(next) {
+    setView(next)
+    setEmail('')
+    setPassword('')
+    setKennelName('')
+  }
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/auth',
+      })
+      if (error) throw error
+      toast.success('Email inviata! Controlla la tua casella di posta.')
+      switchView('login')
+    } catch (error) {
+      toast.error(error.message || 'Errore nell\'invio della email')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleGoogleLogin = async () => {
     try {
@@ -120,13 +146,56 @@ export function Auth() {
             Gestionale Allevamento
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {isLogin ? 'Accedi al tuo account' : 'Crea un nuovo account'}
+            {view === 'login' && 'Accedi al tuo account'}
+            {view === 'register' && 'Crea un nuovo account'}
+            {view === 'forgot' && 'Recupera la tua password'}
           </p>
         </div>
 
         {/* Form */}
         <div className="bg-white py-8 px-6 shadow-xl rounded-lg">
-          <form onSubmit={isLogin ? handleLogin : handleRegister} className="space-y-6">
+
+          {/* ── RECUPERA PASSWORD ── */}
+          {view === 'forgot' && (
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <p className="text-sm text-gray-600">
+                Inserisci la tua email e ti invieremo un link per reimpostare la password.
+              </p>
+              <div>
+                <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700">Email</label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="tua@email.com"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Invio in corso…' : 'Invia link di recupero'}
+              </button>
+              <div className="text-center">
+                <button type="button" onClick={() => switchView('login')} className="text-sm text-blue-600 hover:text-blue-500 font-medium">
+                  Torna al login
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ── LOGIN / REGISTER ── */}
+          {view !== 'forgot' && (
+          <><form onSubmit={isLogin ? handleLogin : handleRegister} className="space-y-6">
             {!isLogin && (
               <div>
                 <label htmlFor="kennelName" className="block text-sm font-medium text-gray-700">
@@ -170,9 +239,20 @@ export function Auth() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => switchView('forgot')}
+                    className="text-xs text-blue-600 hover:text-blue-500 font-medium"
+                  >
+                    Hai dimenticato la password?
+                  </button>
+                )}
+              </div>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
@@ -240,12 +320,7 @@ export function Auth() {
 
             <div className="text-center">
               <button
-                onClick={() => {
-                  setIsLogin(!isLogin)
-                  setEmail('')
-                  setPassword('')
-                  setKennelName('')
-                }}
+                onClick={() => switchView(isLogin ? 'register' : 'login')}
                 className="text-sm text-blue-600 hover:text-blue-500 font-medium"
               >
                 {isLogin
@@ -254,6 +329,7 @@ export function Auth() {
               </button>
             </div>
           </div>
+          </>)}
         </div>
 
         {/* Footer */}

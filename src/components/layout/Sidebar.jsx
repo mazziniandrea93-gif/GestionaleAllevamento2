@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Dog,
@@ -7,6 +7,7 @@ import {
   Baby,
   Euro,
   TrendingUp,
+  Trophy,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -17,11 +18,13 @@ const allNavigation = [
   { name: 'Cuccioli', to: '/puppies', icon: Baby, breedingOnly: true },
   { name: 'Finanze', to: '/finance', icon: Euro },
   { name: 'Salute', to: '/health', icon: TrendingUp },
+  { name: 'Giudici', to: '/judges', icon: Trophy },
   { name: 'Calendario', to: '/calendar', icon: Calendar },
 ]
 
 export default function Sidebar() {
   const { isPrivate } = useAuth()
+  const navigate = useNavigate()
   const navigation = allNavigation.filter(item => !isPrivate || !item.breedingOnly)
   return (
     <aside className="w-64 bg-dark-900 text-white hidden md:flex flex-col p-6">
@@ -56,7 +59,7 @@ export default function Sidebar() {
 
       {/* User Profile */}
       <div className="mt-auto pt-6 border-t border-gray-700">
-        <div className="flex items-center space-x-3 mb-4">
+        <div className="flex items-center space-x-3 mb-4 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/settings')}>
           <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-bold">
             AG
           </div>
