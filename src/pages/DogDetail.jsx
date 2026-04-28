@@ -1291,12 +1291,12 @@ export default function DogDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto scrollbar-none">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-6 py-3 font-bold transition ${
+            className={`px-4 py-3 font-bold transition whitespace-nowrap flex-shrink-0 text-sm ${
               activeTab === tab.id
                 ? 'text-primary-600 border-b-2 border-primary-600'
                 : 'text-gray-500 hover:text-gray-700'
