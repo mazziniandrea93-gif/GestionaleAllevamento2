@@ -259,18 +259,33 @@ function makePrecontratto(doc, subject, settings, form) {
     y += 8
   })
 
+  // Clausole personalizzate dall'allevatore
+  if (settings?.doc_precontratto_clausole) {
+    if (y > H - 50) newPage()
+    y += 3
+    y = secTitle(doc, y, 'Condizioni Aggiuntive dell\'Allevamento')
+    settings.doc_precontratto_clausole.split('\n').filter(Boolean).forEach(line => {
+      if (y > H - 20) newPage()
+      y = clausola(doc, y, line.startsWith('•') ? line : `• ${line}`)
+    })
+  }
+
   if (form.note) {
+    if (y > H - 30) newPage()
     y += 3
     y = secTitle(doc, y, 'Note')
     y = clausola(doc, y, form.note)
   }
 
+  // Foro competente
+  const foro = settings?.doc_foro_competente
   if (y > H - 55) newPage()
   y += 6
 
   y = secTitle(doc, y, 'Sottoscrizione')
   y = clausola(doc, y,
-    'Le parti, avendo letto e compreso il presente precontratto, lo sottoscrivono per accettazione di tutti i termini e le condizioni in esso contenuti.'
+    'Le parti, avendo letto e compreso il presente precontratto, lo sottoscrivono per accettazione di tutti i termini e le condizioni in esso contenuti.' +
+    (foro ? ` Per qualsiasi controversia è competente il Foro di ${foro}.` : '')
   )
   y += 4
   y = signBox(doc, y, ['FIRMA VENDITORE', 'FIRMA ACQUIRENTE'])
@@ -373,6 +388,10 @@ function makeContratto(doc, subject, settings, form, healthRecords) {
     'Il pedigree ENCI sarà consegnato contestualmente o nei termini di legge.',
     `L'acquirente si impegna a garantire adeguate cure veterinarie, alimentazione e benessere all'animale.`,
     `In caso di patologie genetiche gravi entro 12 mesi, il venditore valuterà con l'acquirente una soluzione equa.`,
+    // Garanzie personalizzate dall'allevatore
+    ...(settings?.doc_contratto_garanzie
+      ? settings.doc_contratto_garanzie.split('\n').filter(Boolean).map(l => l.replace(/^[•\-]\s*/, ''))
+      : []),
   ]
   garanzie.forEach(g => {
     if (y > H - 50) newPage()
@@ -385,19 +404,33 @@ function makeContratto(doc, subject, settings, form, healthRecords) {
     y += 7
   })
 
+  // Clausole aggiuntive personalizzate
+  if (settings?.doc_contratto_clausole) {
+    if (y > H - 50) newPage()
+    y += 3
+    y = secTitle(doc, y, 'Art. 6 — Condizioni Aggiuntive dell\'Allevamento')
+    settings.doc_contratto_clausole.split('\n').filter(Boolean).forEach(line => {
+      if (y > H - 20) newPage()
+      y = clausola(doc, y, line.startsWith('•') || line.startsWith('-') ? line : `• ${line}`)
+    })
+  }
+
   if (form.note) {
+    if (y > H - 30) newPage()
     y += 3
     y = secTitle(doc, y, 'Note Aggiuntive')
     y = clausola(doc, y, form.note)
   }
 
+  const foro = settings?.doc_foro_competente
   if (y > H - 55) newPage()
   y += 6
 
   y = secTitle(doc, y, 'Sottoscrizione')
   y = clausola(doc, y,
     'Le parti dichiarano di aver letto e compreso integralmente il presente contratto e di accettarne ' +
-    'tutte le condizioni, firmando per accettazione in ogni sua parte.'
+    'tutte le condizioni, firmando per accettazione in ogni sua parte.' +
+    (foro ? ` Per qualsiasi controversia è competente il Foro di ${foro}.` : '')
   )
   y += 4
   y = signBox(doc, y, ['FIRMA VENDITORE', 'FIRMA ACQUIRENTE'])

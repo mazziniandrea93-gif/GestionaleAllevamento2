@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User, Building, Bell, Lock, Save } from 'lucide-react'
+import { User, Building, Bell, Lock, Save, FileText } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
@@ -24,6 +24,10 @@ export default function Settings() {
     address: '',
     vatNumber: '',
     website: '',
+    docForoCompetente: '',
+    docPrecontrattoClausole: '',
+    docContrattoClausole: '',
+    docContrattoGaranzie: '',
   })
 
   // Carica le impostazioni esistenti
@@ -54,6 +58,10 @@ export default function Settings() {
           address: data.address || '',
           vatNumber: data.vat_number || '',
           website: data.website || '',
+          docForoCompetente: data.doc_foro_competente || '',
+          docPrecontrattoClausole: data.doc_precontratto_clausole || '',
+          docContrattoClausole: data.doc_contratto_clausole || '',
+          docContrattoGaranzie: data.doc_contratto_garanzie || '',
         })
       }
     } catch (error) {
@@ -147,6 +155,10 @@ export default function Settings() {
         vat_number: formData.vatNumber,
         email: formData.email,
         website: formData.website,
+        doc_foro_competente: formData.docForoCompetente,
+        doc_precontratto_clausole: formData.docPrecontrattoClausole,
+        doc_contratto_clausole: formData.docContrattoClausole,
+        doc_contratto_garanzie: formData.docContrattoGaranzie,
         updated_at: new Date().toISOString()
       }
 
@@ -188,6 +200,7 @@ export default function Settings() {
   const tabs = [
     { id: 'profilo', label: 'Profilo', icon: User },
     !isPrivate && { id: 'allevamento', label: 'Allevamento', icon: Building },
+    { id: 'documenti', label: 'Documenti', icon: FileText },
     { id: 'notifiche', label: 'Notifiche', icon: Bell },
     { id: 'sicurezza', label: 'Sicurezza', icon: Lock },
   ].filter(Boolean)
@@ -363,6 +376,101 @@ export default function Settings() {
                         onChange={handleChange}
                         className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
                         placeholder="https://www.tuoallevamento.it"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl font-bold hover:bg-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-5 h-5" />
+                    {loading ? 'Salvataggio...' : 'Salva Modifiche'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {activeTab === 'documenti' && (
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 mb-1">Personalizzazione Documenti</h3>
+                  <p className="text-sm text-gray-500 mb-6">
+                    I testi che inserisci qui verranno aggiunti automaticamente ai PDF generati dal gestionale.
+                  </p>
+
+                  {/* Foro competente — comune a tutti */}
+                  <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200 space-y-4">
+                    <div>
+                      <p className="font-bold text-gray-800 text-sm mb-0.5">Foro Competente</p>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Città del tribunale competente per eventuali controversie (es. "Milano", "Roma"). Apparirà in tutti i contratti.
+                      </p>
+                      <input
+                        type="text"
+                        name="docForoCompetente"
+                        value={formData.docForoCompetente}
+                        onChange={handleChange}
+                        placeholder="Es: Milano"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Precontratto */}
+                  <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200 space-y-4 mt-4">
+                    <div>
+                      <p className="font-bold text-amber-800 text-sm mb-0.5">Precontratto con Caparra — Clausole aggiuntive</p>
+                      <p className="text-xs text-amber-700 mb-3">
+                        Testo extra che verrà inserito nel precontratto dopo le clausole standard sulla caparra.
+                        Usa questo campo per aggiungere condizioni specifiche del tuo allevamento
+                        (es. obblighi vaccinali, condizioni di allevamento, ecc.).
+                      </p>
+                      <textarea
+                        name="docPrecontrattoClausole"
+                        value={formData.docPrecontrattoClausole}
+                        onChange={handleChange}
+                        rows={5}
+                        placeholder={`Es:\n• Il cucciolo verrà consegnato con libretto sanitario aggiornato e prima vaccinazione effettuata.\n• L'acquirente si impegna a non utilizzare il soggetto per attività di riproduzione commerciale senza autorizzazione scritta del venditore.`}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition text-sm resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Contratto di vendita */}
+                  <div className="p-5 bg-green-50 rounded-2xl border border-green-200 space-y-4 mt-4">
+                    <div>
+                      <p className="font-bold text-green-800 text-sm mb-0.5">Contratto di Vendita — Garanzie personalizzate</p>
+                      <p className="text-xs text-green-700 mb-3">
+                        Garanzie aggiuntive da inserire nell'Art. 5 del contratto, dopo quelle standard.
+                        Utile per specificare garanzie sanitarie particolari della tua razza.
+                      </p>
+                      <textarea
+                        name="docContrattoGaranzie"
+                        value={formData.docContrattoGaranzie}
+                        onChange={handleChange}
+                        rows={4}
+                        placeholder={`Es:\n• Il cucciolo è stato testato per [malattia specifica] con risultato negativo.\n• Il venditore garantisce l'assenza di displasia dell'anca nei genitori (certificato HD).`}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-green-200 focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-green-800 text-sm mb-0.5">Contratto di Vendita — Clausole aggiuntive</p>
+                      <p className="text-xs text-green-700 mb-3">
+                        Testo extra che apparirà in fondo al contratto prima delle firme.
+                        Puoi inserire condizioni particolari, divieti o accordi specifici.
+                      </p>
+                      <textarea
+                        name="docContrattoClausole"
+                        value={formData.docContrattoClausole}
+                        onChange={handleChange}
+                        rows={4}
+                        placeholder={`Es:\n• È vietata la cessione del soggetto a terzi senza preventivo accordo scritto con il venditore.\n• In caso di rinuncia del soggetto, il venditore ha diritto di prelazione sul riacquisto.`}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-green-200 focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm resize-none"
                       />
                     </div>
                   </div>
