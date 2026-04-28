@@ -1357,29 +1357,20 @@ export default function DogDetail() {
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-black text-gray-900 mb-1">Modulistica Automatica</h3>
-              <p className="text-sm text-gray-500">Genera documenti ufficiali pre-compilati con i dati del gestionale.</p>
+              <p className="text-sm text-gray-500">Genera il contratto di vendita pre-compilato con i dati del gestionale.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { icon: '📄', label: 'Certificato di Cessione', desc: 'Trasferimento di proprietà', color: 'border-blue-200 hover:border-blue-400 bg-blue-50' },
-                { icon: '📝', label: 'Contratto di Vendita', desc: 'Con garanzie e clausole legali', color: 'border-green-200 hover:border-green-400 bg-green-50' },
-                { icon: '🩺', label: 'Scheda Sanitaria', desc: 'Vaccinazioni e trattamenti', color: 'border-purple-200 hover:border-purple-400 bg-purple-50' },
-              ].map(doc => (
-                <button
-                  key={doc.label}
-                  onClick={() => setIsDocOpen(true)}
-                  className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition text-center ${doc.color}`}
-                >
-                  <span className="text-4xl">{doc.icon}</span>
-                  <div>
-                    <p className="font-bold text-gray-900 text-sm">{doc.label}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{doc.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => setIsDocOpen(true)}
+              className="w-full flex items-center gap-4 p-6 rounded-2xl border-2 border-green-200 hover:border-green-400 bg-green-50 transition text-left"
+            >
+              <span className="text-4xl">📝</span>
+              <div>
+                <p className="font-bold text-gray-900">Contratto di Vendita</p>
+                <p className="text-sm text-gray-500 mt-0.5">Con garanzie, clausole legali e firme</p>
+              </div>
+            </button>
             <p className="text-xs text-gray-400 text-center">
-              I documenti vengono generati in PDF con i dati del cane e dell'allevamento già inseriti.
+              Il documento viene generato in PDF con i dati del cane e dell'allevamento già inseriti.
               Dovrai completare solo i dati dell'acquirente.
             </p>
           </div>
@@ -1433,6 +1424,7 @@ export default function DogDetail() {
       {isDocOpen && (
         <DocumentiModal
           dog={dog}
+          filterTypes={['contratto']}
           onClose={() => setIsDocOpen(false)}
         />
       )}
