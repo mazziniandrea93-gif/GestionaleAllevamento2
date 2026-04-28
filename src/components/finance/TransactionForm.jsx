@@ -67,8 +67,17 @@ export default function TransactionForm({ transaction, onClose, onSuccess }) {
 
       if (transactionType === 'income') {
         dataToSubmit.income_date = formData.date
-        dataToSubmit.puppy_id = formData.puppy_id || null
         dataToSubmit.invoice_number = formData.invoice_number || null
+        if (formData.category === 'vendita_cucciolo') {
+          dataToSubmit.puppy_id = formData.puppy_id || null
+          dataToSubmit.dog_id = null
+        } else if (formData.category === 'monta') {
+          dataToSubmit.dog_id = formData.dog_id || null
+          dataToSubmit.puppy_id = null
+        } else {
+          dataToSubmit.puppy_id = null
+          dataToSubmit.dog_id = null
+        }
 
         if (transaction?.id) {
           await db.updateIncome(transaction.id, dataToSubmit)
@@ -101,9 +110,14 @@ export default function TransactionForm({ transaction, onClose, onSuccess }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    if (name === 'category') {
+      setFormData(prev => ({ ...prev, category: value, dog_id: '', puppy_id: '' }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
   }
 
+  const maleDogs = dogs.filter(d => d.gender === 'maschio')
   const categories = transactionType === 'income' ? incomeCategories : expenseCategories
 
   return (
@@ -248,41 +262,62 @@ export default function TransactionForm({ transaction, onClose, onSuccess }) {
                 </div>
               )}
 
-              {transactionType === 'income' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Cucciolo (opzionale)
-                    </label>
-                    <select
-                      name="puppy_id"
-                      value={formData.puppy_id}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
-                    >
-                      <option value="">Nessun cucciolo</option>
-                      {puppies.map((puppy) => (
-                        <option key={puppy.id} value={puppy.id}>
-                          {puppy.name || 'Senza nome'} - {puppy.gender}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              {transactionType === 'income' && formData.category === 'vendita_cucciolo' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Cucciolo
+                  </label>
+                  <select
+                    name="puppy_id"
+                    value={formData.puppy_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                  >
+                    <option value="">Seleziona cucciolo</option>
+                    {puppies.map((puppy) => (
+                      <option key={puppy.id} value={puppy.id}>
+                        {puppy.name || 'Senza nome'} - {puppy.gender}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      N° Fattura
-                    </label>
-                    <input
-                      type="text"
-                      name="invoice_number"
-                      value={formData.invoice_number}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
-                      placeholder="FAT-2024-001"
-                    />
-                  </div>
-                </>
+              {transactionType === 'income' && formData.category === 'monta' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Cane maschio
+                  </label>
+                  <select
+                    name="dog_id"
+                    value={formData.dog_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                  >
+                    <option value="">Seleziona cane</option>
+                    {maleDogs.map((dog) => (
+                      <option key={dog.id} value={dog.id}>
+                        {dog.name} - {dog.breed}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {transactionType === 'income' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    N° Fattura
+                  </label>
+                  <input
+                    type="text"
+                    name="invoice_number"
+                    value={formData.invoice_number}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                    placeholder="FAT-2024-001"
+                  />
+                </div>
               )}
             </div>
 

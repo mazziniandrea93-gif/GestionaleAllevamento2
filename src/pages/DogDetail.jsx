@@ -34,6 +34,8 @@ import DogForm from '@/components/dogs/DogForm'
 import DogMeasurements from '@/components/dogs/DogMeasurements'
 import DogGrowthChart from '@/components/dogs/DogGrowthChart'
 import DogPdfModal from '@/components/dogs/DogPdfModal'
+import FamilyTree from '@/components/dogs/FamilyTree'
+import DocumentiModal from '@/components/dogs/DocumentiModal'
 
 const EVENT_TYPE_CONFIG = {
   veterinario:    { label: 'Veterinario',    icon: Stethoscope, bg: 'bg-blue-100',   text: 'text-blue-700'   },
@@ -1063,6 +1065,7 @@ export default function DogDetail() {
   const queryClient = useQueryClient()
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isPdfOpen, setIsPdfOpen] = useState(false)
+  const [isDocOpen, setIsDocOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
 
   const { data: dog, isLoading, refetch } = useQuery({
@@ -1160,6 +1163,7 @@ export default function DogDetail() {
     { id: 'salute', label: 'Salute' },
     { id: 'documenti', label: 'Documenti' },
     ...(isFemale ? [{ id: 'calori', label: 'Calori' }] : []),
+    { id: 'albero', label: 'Albero' },
     { id: 'giudici', label: 'Giudici' },
     { id: 'storia', label: 'Storia' },
   ]
@@ -1350,11 +1354,34 @@ export default function DogDetail() {
         )}
 
         {activeTab === 'documenti' && (
-          <div className="text-center py-10">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Award className="w-8 h-8 text-blue-600" />
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-black text-gray-900 mb-1">Modulistica Automatica</h3>
+              <p className="text-sm text-gray-500">Genera documenti ufficiali pre-compilati con i dati del gestionale.</p>
             </div>
-            <p className="text-gray-500">Documenti in arrivo</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { icon: '📄', label: 'Certificato di Cessione', desc: 'Trasferimento di proprietà', color: 'border-blue-200 hover:border-blue-400 bg-blue-50' },
+                { icon: '📝', label: 'Contratto di Vendita', desc: 'Con garanzie e clausole legali', color: 'border-green-200 hover:border-green-400 bg-green-50' },
+                { icon: '🩺', label: 'Scheda Sanitaria', desc: 'Vaccinazioni e trattamenti', color: 'border-purple-200 hover:border-purple-400 bg-purple-50' },
+              ].map(doc => (
+                <button
+                  key={doc.label}
+                  onClick={() => setIsDocOpen(true)}
+                  className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition text-center ${doc.color}`}
+                >
+                  <span className="text-4xl">{doc.icon}</span>
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm">{doc.label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{doc.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 text-center">
+              I documenti vengono generati in PDF con i dati del cane e dell'allevamento già inseriti.
+              Dovrai completare solo i dati dell'acquirente.
+            </p>
           </div>
         )}
 
@@ -1365,6 +1392,10 @@ export default function DogDetail() {
             dogName={dog.name}
             onAdded={() => queryClient.invalidateQueries(['heatCycles', id])}
           />
+        )}
+
+        {activeTab === 'albero' && (
+          <FamilyTree dog={dog} />
         )}
 
         {activeTab === 'giudici' && (
@@ -1395,6 +1426,14 @@ export default function DogDetail() {
           dogEvents={dogEvents}
           heatCycles={heatCycles}
           onClose={() => setIsPdfOpen(false)}
+        />
+      )}
+
+      {/* Documenti Modal */}
+      {isDocOpen && (
+        <DocumentiModal
+          dog={dog}
+          onClose={() => setIsDocOpen(false)}
         />
       )}
     </div>

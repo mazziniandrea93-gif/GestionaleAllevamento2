@@ -31,7 +31,7 @@ export default function DogCard({ dog, onUpdate }) {
   return (
     <div
       onClick={() => navigate(`/dogs/${dog.id}`)}
-      className="bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer group border-2 border-transparent hover:border-primary-200"
+      className="bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer group border-2 border-transparent hover:border-primary-200 flex flex-col"
     >
       {/* Image */}
       <div className="relative h-48 overflow-hidden" style={{ background: dog.color ? `linear-gradient(135deg, ${dog.color}cc, ${dog.color})` : 'linear-gradient(135deg, #e5e7eb, #d1d5db)' }}>
@@ -71,7 +71,7 @@ export default function DogCard({ dog, onUpdate }) {
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-6 flex-1">
         <div className="flex items-center gap-2 mb-1">
           {dog.color && (
             <div

@@ -14,6 +14,7 @@ import {
   Search,
   ChevronRight,
   MessageSquare,
+  Dog,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -52,7 +53,8 @@ function JudgeModal({ judge, onClose, onSuccess }) {
       }
       onSuccess()
     } catch (err) {
-      toast.error('Errore nel salvataggio')
+      toast.error(err?.message || 'Errore nel salvataggio')
+      console.error('createJudge/updateJudge error:', err)
     } finally {
       setSaving(false)
     }
@@ -128,6 +130,152 @@ function JudgeModal({ judge, onClose, onSuccess }) {
   )
 }
 
+function JudgmentModal({ judges, dogs, preselectedJudgeId, initialData, judgmentId, onClose, onSuccess }) {
+  const isEditing = !!judgmentId
+  const [form, setForm] = useState({
+    judge_id: initialData?.judge_id || preselectedJudgeId || '',
+    dog_id: initialData?.dog_id || '',
+    judgment_date: initialData?.judgment_date || new Date().toISOString().split('T')[0],
+    show_name: initialData?.show_name || '',
+    grade: initialData?.grade || '',
+    judgment_text: initialData?.judgment_text || '',
+    our_comments: initialData?.our_comments || '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.judge_id) { toast.error('Seleziona un giudice'); return }
+    if (!form.dog_id) { toast.error('Seleziona un cane'); return }
+    setSaving(true)
+    try {
+      if (isEditing) {
+        await db.updateJudgment(judgmentId, form)
+        toast.success('Giudizio aggiornato')
+      } else {
+        await db.createJudgment(form)
+        toast.success('Giudizio salvato')
+      }
+      onSuccess()
+    } catch (err) {
+      toast.error(err?.message || 'Errore nel salvataggio')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-black text-gray-900">{isEditing ? 'Modifica giudizio' : 'Nuovo giudizio'}</h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Giudice *</label>
+              <select
+                required
+                value={form.judge_id}
+                onChange={e => setForm(f => ({ ...f, judge_id: e.target.value }))}
+                disabled={!!preselectedJudgeId}
+                className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm bg-white disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="">Seleziona giudice…</option>
+                {judges.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Cane *</label>
+              <select
+                required
+                value={form.dog_id}
+                onChange={e => setForm(f => ({ ...f, dog_id: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm bg-white"
+              >
+                <option value="">Seleziona cane…</option>
+                {dogs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Data esposizione *</label>
+              <input
+                type="date"
+                required
+                value={form.judgment_date}
+                onChange={e => setForm(f => ({ ...f, judgment_date: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Qualifica</label>
+              <select
+                value={form.grade}
+                onChange={e => setForm(f => ({ ...f, grade: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm bg-white"
+              >
+                <option value="">Nessuna qualifica</option>
+                {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Nome esposizione</label>
+            <input
+              type="text"
+              value={form.show_name}
+              placeholder="Es: Esposizione Nazionale Milano 2024…"
+              onChange={e => setForm(f => ({ ...f, show_name: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Giudizio del giudice</label>
+            <textarea
+              rows={3}
+              value={form.judgment_text}
+              placeholder="Testo del giudizio ufficiale…"
+              onChange={e => setForm(f => ({ ...f, judgment_text: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Nostri commenti</label>
+            <textarea
+              rows={2}
+              value={form.our_comments}
+              placeholder="Note personali…"
+              onChange={e => setForm(f => ({ ...f, our_comments: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-sm">
+              Annulla
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 px-4 py-2.5 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 text-sm disabled:opacity-50">
+              {saving ? 'Salvataggio…' : isEditing ? 'Aggiorna' : 'Salva giudizio'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function Judges() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -138,6 +286,7 @@ export default function Judges() {
   const [modalJudge, setModalJudge] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
+  const [judgmentModal, setJudgmentModal] = useState(null) // null | { preselectedJudgeId, initialData, judgmentId }
 
   const { data: judges = [], isLoading: loadingJudges } = useQuery({
     queryKey: ['judges'],
@@ -147,6 +296,11 @@ export default function Judges() {
   const { data: allJudgments = [], isLoading: loadingJudgments } = useQuery({
     queryKey: ['all-judgments'],
     queryFn: db.getAllJudgments,
+  })
+
+  const { data: dogs = [] } = useQuery({
+    queryKey: ['dogs'],
+    queryFn: () => db.getDogs(),
   })
 
   function invalidate() {
@@ -356,14 +510,22 @@ export default function Judges() {
                           </div>
                         )}
                       </div>
-                      {judgeJudgments.length > 0 && (
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => { setJudgeFilter(judge.id); setActiveTab('giudizi') }}
-                          className="flex items-center gap-1 text-xs font-bold text-yellow-600 hover:text-yellow-700 transition"
+                          onClick={() => setJudgmentModal({ preselectedJudgeId: judge.id })}
+                          className="flex items-center gap-1 text-xs font-bold text-yellow-600 hover:text-yellow-700 border border-yellow-200 hover:bg-yellow-50 px-2.5 py-1.5 rounded-xl transition"
                         >
-                          Vedi giudizi <ChevronRight className="w-3.5 h-3.5" />
+                          <Plus className="w-3 h-3" /> Giudizio
                         </button>
-                      )}
+                        {judgeJudgments.length > 0 && (
+                          <button
+                            onClick={() => { setJudgeFilter(judge.id); setActiveTab('giudizi') }}
+                            className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-gray-700 transition"
+                          >
+                            Vedi <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {judge.notes && (
@@ -380,8 +542,8 @@ export default function Judges() {
       {/* ── TAB TUTTI I GIUDIZI ── */}
       {activeTab === 'giudizi' && (
         <div className="space-y-4">
-          {/* Filtri */}
-          <div className="flex flex-wrap gap-3">
+          {/* Filtri + bottone aggiungi */}
+          <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">Giudice</label>
               <select
@@ -407,15 +569,21 @@ export default function Judges() {
               </select>
             </div>
             {(judgeFilter !== 'tutti' || gradeFilter !== 'tutti') && (
-              <div className="flex items-end">
-                <button
-                  onClick={() => { setJudgeFilter('tutti'); setGradeFilter('tutti') }}
-                  className="px-3 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition"
-                >
-                  Azzera filtri
-                </button>
-              </div>
+              <button
+                onClick={() => { setJudgeFilter('tutti'); setGradeFilter('tutti') }}
+                className="px-3 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition"
+              >
+                Azzera filtri
+              </button>
             )}
+            <div className="ml-auto">
+              <button
+                onClick={() => setJudgmentModal({ preselectedJudgeId: judgeFilter !== 'tutti' ? judgeFilter : null })}
+                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 transition text-sm shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> Aggiungi giudizio
+              </button>
+            </div>
           </div>
 
           {loadingJudgments ? (
@@ -428,7 +596,7 @@ export default function Judges() {
                 <Trophy className="w-10 h-10 text-yellow-500" />
               </div>
               <h3 className="text-xl font-bold text-gray-700 mb-2">Nessun giudizio trovato</h3>
-              <p className="text-gray-500">I giudizi vengono aggiunti dalla scheda del singolo cane</p>
+              <p className="text-gray-500">Aggiungi il primo giudizio tramite il pulsante in alto</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -454,6 +622,24 @@ export default function Judges() {
                         className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition flex items-center gap-1"
                       >
                         {j.dog?.name || 'Cane'} <ChevronRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => setJudgmentModal({
+                          judgmentId: j.id,
+                          preselectedJudgeId: null,
+                          initialData: {
+                            judge_id: j.judge_id,
+                            dog_id: j.dog_id,
+                            judgment_date: j.judgment_date,
+                            show_name: j.show_name || '',
+                            grade: j.grade || '',
+                            judgment_text: j.judgment_text || '',
+                            our_comments: j.our_comments || '',
+                          },
+                        })}
+                        className="p-2 hover:bg-yellow-50 rounded-xl transition text-yellow-500"
+                      >
+                        <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteJudgment(j.id)}
@@ -509,6 +695,19 @@ export default function Judges() {
           judge={modalJudge}
           onClose={() => { setShowModal(false); setModalJudge(null) }}
           onSuccess={() => { setShowModal(false); setModalJudge(null); invalidate() }}
+        />
+      )}
+
+      {/* Modal nuovo giudizio */}
+      {judgmentModal && (
+        <JudgmentModal
+          judges={judges}
+          dogs={dogs}
+          preselectedJudgeId={judgmentModal.preselectedJudgeId}
+          initialData={judgmentModal.initialData}
+          judgmentId={judgmentModal.judgmentId}
+          onClose={() => setJudgmentModal(null)}
+          onSuccess={() => { setJudgmentModal(null); invalidate() }}
         />
       )}
     </div>

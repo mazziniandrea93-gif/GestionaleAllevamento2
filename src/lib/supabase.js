@@ -40,9 +40,41 @@ export const db = {
       .select('*')
       .eq('id', id)
       .single()
-    
+
     if (error) throw error
     return data
+  },
+
+  async getDogWithParents(id) {
+    const { data, error } = await supabase
+      .from('dogs')
+      .select(`
+        *,
+        mother:dogs!dogs_mother_id_fkey(id, name, breed, gender, color, birth_date, status),
+        father:dogs!dogs_father_id_fkey(id, name, breed, gender, color, birth_date, status)
+      `)
+      .eq('id', id)
+      .single()
+    if (error) return null
+    return data
+  },
+
+  async getMatingsForDog(dogId) {
+    const { data, error } = await supabase
+      .from('matings')
+      .select(`
+        *,
+        female:dogs!matings_female_id_fkey(id, name, gender, color, breed),
+        male:dogs!matings_male_id_fkey(id, name, gender, color, breed),
+        litters(
+          id, birth_date, males, females, total_puppies, alive_puppies,
+          puppies(id, name, gender, color, status)
+        )
+      `)
+      .or(`female_id.eq.${dogId},male_id.eq.${dogId}`)
+      .order('mating_date', { ascending: false })
+    if (error) throw error
+    return data || []
   },
 
   async createDog(dog) {

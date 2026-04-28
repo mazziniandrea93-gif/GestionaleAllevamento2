@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
 import { Plus, Filter, Search, Dog } from 'lucide-react'
 import DogCard from '@/components/dogs/DogCard'
@@ -9,8 +9,9 @@ export default function Dogs() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [filter, setFilter] = useState('attivo')
   const [searchQuery, setSearchQuery] = useState('')
+  const queryClient = useQueryClient()
 
-  const { data: dogs, isLoading, refetch } = useQuery({
+  const { data: dogs, isLoading } = useQuery({
     queryKey: ['dogs', filter],
     queryFn: () => db.getDogs(filter === 'tutti' ? null : filter),
   })
@@ -108,7 +109,7 @@ export default function Dogs() {
       ) : filteredDogs && filteredDogs.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredDogs.map((dog) => (
-            <DogCard key={dog.id} dog={dog} onUpdate={refetch} />
+            <DogCard key={dog.id} dog={dog} onUpdate={() => queryClient.invalidateQueries({ queryKey: ['dogs'] })} />
           ))}
         </div>
       ) : (
@@ -131,7 +132,7 @@ export default function Dogs() {
           onClose={() => setIsFormOpen(false)}
           onSuccess={() => {
             setIsFormOpen(false)
-            refetch()
+            queryClient.invalidateQueries({ queryKey: ['dogs'] })
           }}
         />
       )}

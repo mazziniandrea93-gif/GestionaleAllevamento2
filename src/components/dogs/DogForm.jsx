@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, ChevronDown } from 'lucide-react'
 import { db } from '@/lib/supabase'
+import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 
 const DOG_BREEDS = [
@@ -172,7 +173,17 @@ export default function DogForm({ dog, onClose, onSuccess }) {
     weight: dog?.weight || '',
     height: dog?.height || '',
     notes: dog?.notes || '',
+    mother_id: dog?.mother_id || null,
+    father_id: dog?.father_id || null,
   })
+
+  const { data: allDogs = [] } = useQuery({
+    queryKey: ['dogs'],
+    queryFn: () => db.getDogs(),
+  })
+  const otherDogs = allDogs.filter(d => d.id !== dog?.id)
+  const females = otherDogs.filter(d => d.gender?.toLowerCase() === 'femmina' || d.gender?.toLowerCase() === 'f')
+  const males   = otherDogs.filter(d => d.gender?.toLowerCase() === 'maschio' || d.gender?.toLowerCase() === 'm')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -377,6 +388,35 @@ export default function DogForm({ dog, onClose, onSuccess }) {
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
                   placeholder="Es: 55.0"
                 />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="font-bold text-lg text-gray-900">Genitori (opzionale)</h4>
+            <p className="text-xs text-gray-400 -mt-2">Usati per l'albero genealogico. Richiede la colonna mother_id/father_id sulla tabella dogs.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Madre</label>
+                <select
+                  value={formData.mother_id || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, mother_id: e.target.value || null }))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                >
+                  <option value="">— Nessuna —</option>
+                  {females.map(d => <option key={d.id} value={d.id}>{d.name} ({d.breed})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Padre</label>
+                <select
+                  value={formData.father_id || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, father_id: e.target.value || null }))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                >
+                  <option value="">— Nessuno —</option>
+                  {males.map(d => <option key={d.id} value={d.id}>{d.name} ({d.breed})</option>)}
+                </select>
               </div>
             </div>
           </div>
