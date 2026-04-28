@@ -41,8 +41,11 @@ export default function PuppyCard({ puppy, onEdit, onDelete }) {
   const statusColor = getStatusColor(puppy.status)
   const hasContact = buyerEmail?.trim() || buyerPhone?.trim()
 
-  const showPrecontratto = !['venduto', 'trattenuto', 'deceduto'].includes(puppy.status)
-  const showContratto = puppy.status === 'venduto' || puppy.status === 'prenotato'
+  // Quali tipi di documento sono disponibili in base allo stato
+  const docFilterTypes =
+    puppy.status === 'venduto'    ? ['contratto'] :
+    puppy.status === 'prenotato'  ? ['precontratto', 'contratto'] :
+    puppy.status === 'disponibile' ? ['precontratto'] : null
 
   return (
     <>
@@ -74,22 +77,14 @@ export default function PuppyCard({ puppy, onEdit, onDelete }) {
           {/* Pulsanti + badge stato */}
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-2">
-              {showPrecontratto && (
+              {docFilterTypes && (
                 <button
-                  onClick={() => setDocModal('precontratto')}
-                  className="p-2 bg-amber-100 text-amber-600 rounded-lg hover:bg-amber-200 transition"
-                  title="Precontratto con Caparra"
+                  onClick={() => setDocModal('open')}
+                  className="flex items-center gap-1.5 px-2.5 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-xs font-semibold"
+                  title="Genera documento"
                 >
                   <FileText className="w-4 h-4" />
-                </button>
-              )}
-              {showContratto && (
-                <button
-                  onClick={() => setDocModal('contratto')}
-                  className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
-                  title="Contratto di Vendita"
-                >
-                  <Receipt className="w-4 h-4" />
+                  PDF
                 </button>
               )}
               <button
@@ -192,8 +187,7 @@ export default function PuppyCard({ puppy, onEdit, onDelete }) {
       {docModal && (
         <DocumentiModal
           dog={puppy}
-          filterTypes={[docModal]}
-          initialDocType={docModal}
+          filterTypes={docFilterTypes}
           onClose={() => setDocModal(null)}
         />
       )}

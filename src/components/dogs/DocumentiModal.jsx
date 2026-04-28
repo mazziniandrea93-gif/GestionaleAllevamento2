@@ -418,7 +418,7 @@ const ALL_DOC_TYPES = [
     label: 'Precontratto con Caparra',
     icon: ClipboardList,
     color: 'bg-amber-50 border-amber-200 text-amber-700',
-    desc: 'Impegno di acquisto con versamento caparra',
+    desc: 'L\'acquirente versa una caparra per prenotare il cucciolo. Il contratto definitivo verrà firmato alla consegna.',
     fields: [
       { key: 'acquirente_nome',      label: 'Nome Acquirente *',         type: 'text',   placeholder: 'Mario Rossi' },
       { key: 'acquirente_cf',        label: 'Codice Fiscale',            type: 'text',   placeholder: 'RSSMRA...' },
@@ -436,7 +436,7 @@ const ALL_DOC_TYPES = [
     label: 'Contratto di Vendita',
     icon: Receipt,
     color: 'bg-green-50 border-green-200 text-green-700',
-    desc: 'Contratto definitivo con garanzie e clausole',
+    desc: 'Contratto finale di vendita con garanzie. Da firmare al momento della consegna del cucciolo e del pagamento del saldo.',
     fields: [
       { key: 'acquirente_nome',      label: 'Nome Acquirente *',      type: 'text',   placeholder: 'Mario Rossi' },
       { key: 'acquirente_cf',        label: 'Codice Fiscale',         type: 'text',   placeholder: 'RSSMRA...' },
