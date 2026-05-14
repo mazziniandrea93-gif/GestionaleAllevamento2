@@ -162,6 +162,7 @@ export default function DogForm({ dog, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: dog?.name || '',
+    nickname: dog?.nickname || '',
     breed: dog?.breed || '',
     gender: dog?.gender || 'maschio',
     birth_date: dog?.birth_date || '',
@@ -234,7 +235,7 @@ export default function DogForm({ dog, onClose, onSuccess }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Nome *
+                  Nome di pedigree *
                 </label>
                 <input
                   type="text"
@@ -242,6 +243,20 @@ export default function DogForm({ dog, onClose, onSuccess }) {
                   value={formData.name}
                   onChange={handleChange}
                   required
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                  placeholder="Es: Grand Ch. Luna Della Valle"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Soprannome
+                </label>
+                <input
+                  type="text"
+                  name="nickname"
+                  value={formData.nickname}
+                  onChange={handleChange}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
                   placeholder="Es: Luna"
                 />

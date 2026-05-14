@@ -57,7 +57,7 @@ export default function EventCard({ event, onEdit, onDelete, onToggleComplete })
             </h3>
             {event.dog?.name && (
               <p className="text-sm text-gray-600 font-semibold">
-                🐕 {event.dog.name}
+                🐕 {event.dog.nickname || event.dog.name}
               </p>
             )}
           </div>

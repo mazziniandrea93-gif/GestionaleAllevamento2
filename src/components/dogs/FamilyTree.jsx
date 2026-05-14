@@ -163,10 +163,10 @@ function buildDescendantsTree(dog, matings) {
         nodeType: 'litter',
         litterDate: litter.birth_date,
         litterCount: litter.alive_puppies || litter.total_puppies || (litter.puppies?.length ?? 0),
-        partnerName: partner?.name,
+        partnerName: partner?.nickname || partner?.name,
       },
       children: (litter.puppies || []).map(p => ({
-        name: p.name || 'Senza nome',
+        name: p.nickname || p.name || 'Senza nome',
         attrs: {
           nodeType: 'puppy',
           gender: p.gender,
@@ -179,7 +179,7 @@ function buildDescendantsTree(dog, matings) {
   })
 
   return {
-    name: dog.name,
+    name: dog.nickname || dog.name,
     attrs: {
       nodeType: 'root',
       gender: dog.gender,
@@ -219,7 +219,7 @@ function ParentCard({ parent, role, onClick }) {
         <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl" style={{ backgroundColor: parent.color || gc }} />
         <div className="pl-2">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-sm font-black text-gray-900 truncate max-w-[90px]">{parent.name}</span>
+            <span className="text-sm font-black text-gray-900 truncate max-w-[90px]">{parent.nickname || parent.name}</span>
             <ExternalLink className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover:opacity-100 transition flex-shrink-0" />
           </div>
           <p className="text-xs text-gray-500 truncate">{parent.breed}</p>

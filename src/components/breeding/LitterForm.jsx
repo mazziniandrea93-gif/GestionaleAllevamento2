@@ -34,23 +34,34 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
     }
   }
 
-  // Calcola cuccioli vivi automaticamente
-  const alivePuppies = Math.max(0, (parseInt(formData.total_puppies) || 0) - (parseInt(formData.deceased_puppies) || 0))
+  const totalSet = formData.total_puppies !== ''
+  const total = parseInt(formData.total_puppies) || 0
+  const malesVal = parseInt(formData.males) || 0
+  const femalesVal = parseInt(formData.females) || 0
+  const deceasedVal = parseInt(formData.deceased_puppies) || 0
+  const mfSum = malesVal + femalesVal
+  const exceedsTotal = totalSet && mfSum > total
+
+  // Cuccioli vivi: totale - deceduti (totale auto = maschi + femmine + deceduti)
+  const effectiveTotal = totalSet ? total : mfSum + deceasedVal
+  const alivePuppies = Math.max(0, effectiveTotal - deceasedVal)
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (exceedsTotal) return
     setLoading(true)
     setError(null)
 
     try {
-      const totalPuppies = parseInt(formData.total_puppies) || 0
-      const deceasedPuppies = parseInt(formData.deceased_puppies) || 0
+      const deceasedPuppies = deceasedVal
+      // Se totale non inserito, calcolalo da maschi + femmine + deceduti
+      const totalPuppies = totalSet ? total : mfSum + deceasedPuppies
 
       const litterData = {
         ...formData,
         total_puppies: totalPuppies,
-        males: parseInt(formData.males) || 0,
-        females: parseInt(formData.females) || 0,
+        males: malesVal,
+        females: femalesVal,
         deceased_puppies: deceasedPuppies,
         alive_puppies: Math.max(0, totalPuppies - deceasedPuppies)
       }
@@ -91,32 +102,33 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
               gestation_days: gestationDays,
               litter_born: true
             })
+
+            // Marca come completato l'evento parto_stimato collegato
+            const partoEvent = await db.getEventByMatingId(mating.id)
+            if (partoEvent && !partoEvent.completed) {
+              await db.updateEvent(partoEvent.id, { completed: true })
+            }
           }
         }
 
         // Auto-crea i record individuali dei cuccioli
         if (totalPuppies > 0 && newLitter?.id) {
           const puppyRecords = []
-          const malesCount = parseInt(formData.males) || 0
-          const femalesCount = parseInt(formData.females) || 0
 
-          for (let i = 0; i < malesCount; i++) {
+          for (let i = 0; i < malesVal; i++) {
             puppyRecords.push({ gender: 'maschio', status: 'disponibile', litter_id: newLitter.id })
           }
-          for (let i = 0; i < femalesCount; i++) {
+          for (let i = 0; i < femalesVal; i++) {
             puppyRecords.push({ gender: 'femmina', status: 'disponibile', litter_id: newLitter.id })
           }
-          // Se totale > maschi + femmine, aggiungi i restanti senza genere specificato
-          const remaining = totalPuppies - malesCount - femalesCount
+          // Deceduti: record separati senza genere specificato
+          for (let i = 0; i < deceasedPuppies; i++) {
+            puppyRecords.push({ status: 'deceduto', litter_id: newLitter.id })
+          }
+          // Eventuali rimanenti (totale > maschi + femmine + deceduti)
+          const remaining = totalPuppies - malesVal - femalesVal - deceasedPuppies
           for (let i = 0; i < Math.max(0, remaining); i++) {
             puppyRecords.push({ status: 'disponibile', litter_id: newLitter.id })
-          }
-          // Marca gli ultimi N come deceduti
-          if (deceasedPuppies > 0) {
-            const startIdx = Math.max(0, puppyRecords.length - deceasedPuppies)
-            for (let i = startIdx; i < puppyRecords.length; i++) {
-              puppyRecords[i].status = 'deceduto'
-            }
           }
 
           await Promise.all(puppyRecords.map(p => db.createPuppy(p)))
@@ -176,7 +188,7 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
                 <option value="">Seleziona accoppiamento</option>
                 {matings.map((mating) => (
                   <option key={mating.id} value={mating.id}>
-                    {mating.female?.name} × {mating.male?.name} - {new Date(mating.mating_date).toLocaleDateString('it-IT')}
+                    {mating.female?.nickname || mating.female?.name} × {mating.male?.nickname || mating.male?.name} - {new Date(mating.mating_date).toLocaleDateString('it-IT')}
                   </option>
                 ))}
               </select>
@@ -201,7 +213,7 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Totale Cuccioli *
+                Totale Cuccioli
               </label>
               <input
                 type="number"
@@ -209,7 +221,7 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
                 value={formData.total_puppies}
                 onChange={(e) => setFormData({ ...formData, total_puppies: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-primary-500 focus:outline-none transition"
-                required
+                placeholder="Auto"
               />
             </div>
             <div>
@@ -219,9 +231,10 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
               <input
                 type="number"
                 min="0"
+                max={totalSet ? Math.max(0, total - femalesVal) : undefined}
                 value={formData.males}
                 onChange={(e) => setFormData({ ...formData, males: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-primary-500 focus:outline-none transition"
+                className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition ${exceedsTotal ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-primary-500'}`}
               />
             </div>
             <div>
@@ -231,12 +244,18 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
               <input
                 type="number"
                 min="0"
+                max={totalSet ? Math.max(0, total - malesVal) : undefined}
                 value={formData.females}
                 onChange={(e) => setFormData({ ...formData, females: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-primary-500 focus:outline-none transition"
+                className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition ${exceedsTotal ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-primary-500'}`}
               />
             </div>
           </div>
+          {exceedsTotal && (
+            <p className="text-sm text-red-600 font-semibold -mt-4">
+              Maschi + femmine ({mfSum}) superano il totale ({total})
+            </p>
+          )}
 
           {/* Cuccioli deceduti e vivi */}
           <div className="grid grid-cols-2 gap-4">
@@ -289,7 +308,7 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || exceedsTotal}
               className="flex-1 px-6 py-3 bg-primary-500 text-white rounded-2xl font-bold hover:bg-primary-600 transition disabled:opacity-50 shadow-lg shadow-primary-500/30"
             >
               {loading ? 'Salvataggio...' : litter ? 'Aggiorna' : 'Crea Cucciolata'}

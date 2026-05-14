@@ -1187,14 +1187,21 @@ export default function DogDetail() {
             className="w-full md:w-48 h-48 rounded-2xl flex items-center justify-center text-white flex-shrink-0"
             style={{ background: dog.color ? `linear-gradient(135deg, ${dog.color}cc, ${dog.color})` : 'linear-gradient(135deg, #818cf8, #6366f1)' }}
           >
-            <span className="text-6xl font-black">{dog.name.charAt(0).toUpperCase()}</span>
+            <span className="text-6xl font-black">{(dog.nickname || dog.name).charAt(0).toUpperCase()}</span>
           </div>
 
           {/* Dog Info */}
           <div className="flex-1">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h1 className="text-4xl font-black text-gray-900 mb-2">{dog.name}</h1>
+                {dog.nickname ? (
+                  <div className="mb-2">
+                    <h1 className="text-4xl font-black text-gray-900 leading-tight">{dog.nickname}</h1>
+                    <p className="text-sm text-gray-400 font-semibold mt-0.5">{dog.name}</p>
+                  </div>
+                ) : (
+                  <h1 className="text-4xl font-black text-gray-900 mb-2">{dog.name}</h1>
+                )}
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className={`px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(dog.status)}`}>
                     {getStatusLabel(dog.status)}

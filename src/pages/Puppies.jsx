@@ -30,7 +30,7 @@ function LitterGroup({ group, onEdit, onDelete, defaultOpen = true }) {
   const isOpen = open || search.trim().length > 0
 
   const litterName = group.litter?.mating?.female?.name && group.litter?.mating?.male?.name
-    ? `${group.litter.mating.female.name} × ${group.litter.mating.male.name}`
+    ? `${group.litter.mating.female.nickname || group.litter.mating.female.name} × ${group.litter.mating.male.nickname || group.litter.mating.male.name}`
     : group.litter_id ? 'Cucciolata' : 'Senza cucciolata'
 
   return (
@@ -188,6 +188,24 @@ export default function Puppies() {
     if (!confirm(`Sei sicuro di voler eliminare ${puppy.name || 'questo cucciolo'}?`)) return
     try {
       await db.deletePuppy(puppy.id)
+
+      // Scala i conteggi dalla cucciolata
+      if (puppy.litter_id && puppy.litter) {
+        const l = puppy.litter
+        const newTotal = Math.max(0, (l.total_puppies || 0) - 1)
+        const newMales = puppy.gender === 'maschio' ? Math.max(0, (l.males || 0) - 1) : (l.males || 0)
+        const newFemales = puppy.gender === 'femmina' ? Math.max(0, (l.females || 0) - 1) : (l.females || 0)
+        const newDeceased = puppy.status === 'deceduto' ? Math.max(0, (l.deceased_puppies || 0) - 1) : (l.deceased_puppies || 0)
+        await db.updateLitter(puppy.litter_id, {
+          total_puppies: newTotal,
+          males: newMales,
+          females: newFemales,
+          deceased_puppies: newDeceased,
+          alive_puppies: Math.max(0, newTotal - newDeceased),
+        })
+        queryClient.invalidateQueries(['litters'])
+      }
+
       toast.success('Cucciolo eliminato con successo')
       queryClient.invalidateQueries(['puppies'])
     } catch (error) {

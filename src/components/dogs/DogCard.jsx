@@ -79,8 +79,9 @@ export default function DogCard({ dog, onUpdate }) {
               style={{ backgroundColor: dog.color }}
             />
           )}
-          <h3 className="text-xl font-black text-dark-900 leading-tight">{dog.name}</h3>
+          <h3 className="text-xl font-black text-dark-900 leading-tight">{dog.nickname || dog.name}</h3>
         </div>
+        {dog.nickname && <p className="text-xs text-gray-400 font-semibold -mt-1 mb-1">{dog.name}</p>}
         <p className="text-sm text-gray-500 font-semibold mb-4">{dog.breed}</p>
 
         {/* Info Grid */}

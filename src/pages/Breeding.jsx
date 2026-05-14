@@ -10,6 +10,7 @@ import MatingCard from '@/components/breeding/MatingCard'
 export default function Breeding() {
   const [activeTab, setActiveTab] = useState('cucciolate')
   const [litterSubTab, setLitterSubTab] = useState('attuali')
+  const [matingSubTab, setMatingSubTab] = useState('in_attesa')
   const [showLitterForm, setShowLitterForm] = useState(false)
   const [showMatingForm, setShowMatingForm] = useState(false)
   const [selectedLitter, setSelectedLitter] = useState(null)
@@ -22,6 +23,12 @@ export default function Breeding() {
   const { data: litters = [], isLoading: littersLoading } = useQuery({
     queryKey: ['litters'],
     queryFn: () => db.getLitters()
+  })
+
+  // Query per i cuccioli (serve per determinare se una cucciolata è passata)
+  const { data: allPuppies = [] } = useQuery({
+    queryKey: ['puppies'],
+    queryFn: () => db.getPuppies()
   })
 
   // Query per gli accoppiamenti
@@ -103,24 +110,25 @@ export default function Breeding() {
     queryClient.invalidateQueries(['matings'])
   }
 
-  // Soglia 6 mesi fa
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-
   // Filtra i risultati in base alla ricerca + sotto-tab cucciolate
   const filteredLitters = litters.filter(litter => {
     const matchesSearch =
       litter.mating?.female?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       litter.mating?.male?.name.toLowerCase().includes(searchQuery.toLowerCase())
     if (!matchesSearch) return false
-    const isPast = new Date(litter.birth_date) < sixMonthsAgo
+    const puppies = allPuppies.filter(p => p.litter_id === litter.id)
+    const isPast = puppies.length > 0 &&
+      puppies.every(p => ['venduto', 'trattenuto', 'deceduto'].includes(p.status))
     return litterSubTab === 'passate' ? isPast : !isPast
   })
 
-  const filteredMatings = matings.filter(mating =>
-    mating.female?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    mating.male?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredMatings = matings.filter(mating => {
+    const matchesSearch =
+      mating.female?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      mating.male?.name.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!matchesSearch) return false
+    return matingSubTab === 'nati' ? !!mating.litter_born : !mating.litter_born
+  })
 
   return (
     <div className="space-y-6">
@@ -171,6 +179,28 @@ export default function Breeding() {
               onClick={() => setLitterSubTab(key)}
               className={`px-5 py-2 rounded-xl font-bold text-sm transition ${
                 litterSubTab === key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Sotto-tab accoppiamenti */}
+      {activeTab === 'accoppiamenti' && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl w-fit">
+          {[
+            { key: 'in_attesa', label: '⏳ In attesa' },
+            { key: 'nati', label: '🐣 Cucciolata nata' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setMatingSubTab(key)}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition whitespace-nowrap ${
+                matingSubTab === key
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -251,11 +281,17 @@ export default function Breeding() {
               <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Heart className="w-10 h-10 text-primary-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-700 mb-2">Nessun accoppiamento</h3>
+              <h3 className="text-xl font-bold text-gray-700 mb-2">
+                {matingSubTab === 'nati' ? 'Nessun accoppiamento con cucciolata nata' : 'Nessun accoppiamento in attesa'}
+              </h3>
               <p className="text-gray-500 mb-6">
-                {searchQuery ? 'Nessun accoppiamento trovato con questi criteri' : 'Inizia registrando il primo accoppiamento'}
+                {searchQuery
+                  ? 'Nessun accoppiamento trovato con questi criteri'
+                  : matingSubTab === 'nati'
+                    ? 'Gli accoppiamenti con cucciolata registrata appariranno qui'
+                    : 'Inizia registrando il primo accoppiamento'}
               </p>
-              {!searchQuery && (
+              {!searchQuery && matingSubTab === 'in_attesa' && (
                 <button
                   onClick={() => setShowMatingForm(true)}
                   className="px-6 py-3 bg-primary-500 text-white rounded-2xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30"

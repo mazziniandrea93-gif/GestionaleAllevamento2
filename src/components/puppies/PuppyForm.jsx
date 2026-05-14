@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Dog } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
 export default function PuppyForm({ puppy, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
+  const [addDogPrompt, setAddDogPrompt] = useState(null) // { name, gender, microchip, birth_date }
   // buyer_contact è salvato come "email|telefono"
   const [buyerEmailRaw, buyerPhoneRaw] = (puppy?.buyer_contact || '').split('|')
 
@@ -87,6 +88,21 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
         toast.success('Entrata registrata automaticamente in Finanze')
       }
 
+      // Modal per aggiungere il cucciolo trattenuto come cane
+      const wasTrattenuto = puppy?.status === 'trattenuto'
+      const isNowTrattenuto = dataToSubmit.status === 'trattenuto'
+      if (isNowTrattenuto && !wasTrattenuto) {
+        const litter = litters.find(l => l.id === formData.litter_id)
+        setAddDogPrompt({
+          name: formData.name || null,
+          gender: formData.gender || null,
+          microchip: formData.microchip || null,
+          birth_date: litter?.birth_date || null,
+        })
+        // Non chiamare onSuccess/onClose qui: lo fa il modal dopo la scelta
+        return
+      }
+
       onSuccess()
     } catch (error) {
       console.error('Error saving puppy:', error)
@@ -99,6 +115,51 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  async function handleAddAsDog() {
+    try {
+      await db.createDog(addDogPrompt)
+      toast.success(`${addDogPrompt.name || 'Cucciolo'} aggiunto ai tuoi cani!`)
+    } catch (err) {
+      toast.error('Errore durante la creazione del cane')
+    }
+    setAddDogPrompt(null)
+    onSuccess()
+  }
+
+  if (addDogPrompt) {
+    const label = addDogPrompt.name || 'il cucciolo'
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-6">
+          <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center">
+            <Dog className="w-8 h-8 text-purple-600" />
+          </div>
+          <div className="text-center">
+            <h3 className="text-xl font-black text-gray-900 mb-2">Aggiungi ai tuoi cani?</h3>
+            <p className="text-gray-500 text-sm">
+              <span className="font-bold text-gray-800">{label}</span> è stato trattenuto.<br />
+              Vuoi aggiungerlo alla scheda dei tuoi cani?
+            </p>
+          </div>
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={() => { setAddDogPrompt(null); onSuccess() }}
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition"
+            >
+              No, grazie
+            </button>
+            <button
+              onClick={handleAddAsDog}
+              className="flex-1 px-4 py-3 rounded-xl bg-purple-500 text-white font-bold hover:bg-purple-600 transition shadow-lg shadow-purple-500/30"
+            >
+              Sì, aggiungi
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

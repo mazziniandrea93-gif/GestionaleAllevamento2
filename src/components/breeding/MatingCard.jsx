@@ -28,14 +28,8 @@ export default function MatingCard({ mating, onEdit, onDelete }) {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-xl font-black text-dark-900">
-              {mating.female?.name} × {mating.male?.name}
+              {mating.female?.nickname || mating.female?.name} × {mating.male?.nickname || mating.male?.name}
             </h3>
-            {litterBorn && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">
-                <CheckCircle className="w-3 h-3" />
-                Cucciolata nata
-              </span>
-            )}
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-gray-500">

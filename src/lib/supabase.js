@@ -64,8 +64,8 @@ export const db = {
       .from('matings')
       .select(`
         *,
-        female:dogs!matings_female_id_fkey(id, name, gender, color, breed),
-        male:dogs!matings_male_id_fkey(id, name, gender, color, breed),
+        female:dogs!matings_female_id_fkey(id, name, nickname, gender, color, breed),
+        male:dogs!matings_male_id_fkey(id, name, nickname, gender, color, breed),
         litters(
           id, birth_date, males, females, total_puppies, alive_puppies,
           puppies(id, name, gender, color, status)
@@ -306,8 +306,8 @@ export const db = {
           alive_puppies,
           deceased_puppies,
           mating:matings(
-            female:dogs!matings_female_id_fkey(name),
-            male:dogs!matings_male_id_fkey(name)
+            female:dogs!matings_female_id_fkey(name, nickname),
+            male:dogs!matings_male_id_fkey(name, nickname)
           )
         )
       `)
@@ -386,7 +386,7 @@ export const db = {
     if (allDogIds.length > 0) {
       const { data: dogs } = await supabase
         .from('dogs')
-        .select('id, name, breed, color')
+        .select('id, name, nickname, breed, color, gender')
         .in('id', allDogIds)
       dogs?.forEach(d => { dogsMap[d.id] = d })
     }
@@ -638,8 +638,8 @@ export const db = {
       .from('matings')
       .select(`
         *,
-        female:dogs!matings_female_id_fkey(id, name),
-        male:dogs!matings_male_id_fkey(id, name)
+        female:dogs!matings_female_id_fkey(id, name, nickname),
+        male:dogs!matings_male_id_fkey(id, name, nickname)
       `)
       .order('mating_date', { ascending: false })
 
@@ -688,8 +688,8 @@ export const db = {
       .select(`
         *,
         mating:matings(
-          female:dogs!matings_female_id_fkey(name),
-          male:dogs!matings_male_id_fkey(name)
+          female:dogs!matings_female_id_fkey(name, nickname),
+          male:dogs!matings_male_id_fkey(name, nickname)
         )
       `)
       .order('birth_date', { ascending: false })

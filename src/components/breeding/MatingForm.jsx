@@ -79,7 +79,7 @@ export default function MatingForm({ mating, onClose, onSuccess }) {
       if (savedMating?.expected_delivery) {
         const female = dogs.find(d => d.id === formData.female_id)
         const male = dogs.find(d => d.id === formData.male_id)
-        const eventTitle = `🐣 Parto previsto: ${female?.name || '?'} × ${male?.name || '?'}`
+        const eventTitle = `🐣 Parto previsto: ${female?.nickname || female?.name || '?'} × ${male?.nickname || male?.name || '?'}`
         const eventDescription = `__mating_id:${savedMating.id}__`
         const dogIds = [formData.female_id, formData.male_id].filter(Boolean)
 
@@ -201,7 +201,7 @@ export default function MatingForm({ mating, onClose, onSuccess }) {
                 <option value="">Seleziona femmina ({females.length} disponibili)</option>
                 {females.map((dog) => (
                   <option key={dog.id} value={dog.id}>
-                    {dog.name} {dog.microchip ? `- ${dog.microchip}` : ''}
+                    {dog.nickname || dog.name} {dog.microchip ? `- ${dog.microchip}` : ''}
                   </option>
                 ))}
               </select>
@@ -227,7 +227,7 @@ export default function MatingForm({ mating, onClose, onSuccess }) {
                 <option value="">Seleziona maschio ({males.length} disponibili)</option>
                 {males.map((dog) => (
                   <option key={dog.id} value={dog.id}>
-                    {dog.name} {dog.microchip ? `- ${dog.microchip}` : ''}
+                    {dog.nickname || dog.name} {dog.microchip ? `- ${dog.microchip}` : ''}
                   </option>
                 ))}
               </select>

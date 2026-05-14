@@ -213,34 +213,45 @@ export default function Calendar() {
                 {/* Events List */}
                 {isCurrentMonth && (
                   <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map((event) => (
-                      <div
-                        key={event.id}
-                        onClick={(e) => handleEventClick(event, e)}
-                        className={`
-                          text-xs px-2 py-1 rounded-lg font-medium
-                          flex items-center justify-between gap-1
-                          ${getCategoryColor(event.event_type)} text-white
-                          hover:scale-105 transition cursor-pointer
-                          ${event.completed ? 'opacity-60 line-through' : ''}
-                        `}
-                        title={event.title}
-                      >
-                        <span className="truncate min-w-0">{event.title}</span>
-                        {event.dogs?.length > 0 && (
-                          <span className="flex items-center flex-shrink-0" style={{ marginLeft: '2px' }}>
-                            {event.dogs.slice(0, 3).map((dog, i) => (
-                              <span
-                                key={dog.id}
-                                className="w-3.5 h-3.5 rounded-full border border-white block"
-                                style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-4px' : '0' }}
-                                title={dog.name}
-                              />
-                            ))}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                    {dayEvents.slice(0, 3).map((event) => {
+                      const isPartoPrevisto = event.event_type === 'parto_stimato'
+                      const female = isPartoPrevisto && event.dogs?.find(d => d.gender?.toLowerCase() === 'femmina' || d.gender?.toLowerCase() === 'f')
+                      const male = isPartoPrevisto && event.dogs?.find(d => d.gender?.toLowerCase() === 'maschio' || d.gender?.toLowerCase() === 'm')
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={(e) => handleEventClick(event, e)}
+                          className={`
+                            text-xs px-2 py-1 rounded-lg font-medium
+                            flex items-center justify-between gap-1
+                            hover:scale-105 transition cursor-pointer
+                            ${event.completed ? 'opacity-60 line-through' : ''}
+                            ${isPartoPrevisto ? 'text-white' : `${getCategoryColor(event.event_type)} text-white`}
+                          `}
+                          style={isPartoPrevisto ? { background: 'linear-gradient(to right, #f472b6, #60a5fa)' } : undefined}
+                          title={event.title}
+                        >
+                          <span className="truncate min-w-0">{event.title}</span>
+                          {isPartoPrevisto && (female || male) ? (
+                            <span className="flex items-center gap-0.5 flex-shrink-0">
+                              {female && <span className="w-3 h-3 rounded-full bg-pink-300 border border-white block" title={female.name} />}
+                              {male && <span className="w-3 h-3 rounded-full bg-blue-300 border border-white block" title={male.name} />}
+                            </span>
+                          ) : event.dogs?.length > 0 ? (
+                            <span className="flex items-center flex-shrink-0" style={{ marginLeft: '2px' }}>
+                              {event.dogs.slice(0, 3).map((dog, i) => (
+                                <span
+                                  key={dog.id}
+                                  className="w-3.5 h-3.5 rounded-full border border-white block"
+                                  style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-4px' : '0' }}
+                                  title={dog.nickname || dog.name}
+                                />
+                              ))}
+                            </span>
+                          ) : null}
+                        </div>
+                      )
+                    })}
                     {dayEvents.length > 3 && (
                       <div className="text-xs text-gray-500 font-medium px-2">
                         +{dayEvents.length - 3} altri
@@ -314,12 +325,12 @@ export default function Calendar() {
                                 key={dog.id}
                                 className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
                                 style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-6px' : '0' }}
-                                title={dog.name}
+                                title={dog.nickname || dog.name}
                               />
                             ))}
                           </div>
                           <span className="text-sm text-gray-600 font-semibold">
-                            {event.dogs.map(d => d.name).join(', ')}
+                            {event.dogs.map(d => d.nickname || d.name).join(', ')}
                           </span>
                         </div>
                       )}
@@ -422,7 +433,7 @@ export default function Calendar() {
                           className="w-7 h-7 rounded-full border-2 border-white shadow-md flex-shrink-0"
                           style={{ backgroundColor: dog.color || '#94a3b8' }}
                         />
-                        <span className="font-bold text-gray-900">{dog.name}</span>
+                        <span className="font-bold text-gray-900">{dog.nickname || dog.name}</span>
                       </div>
                     ))}
                   </div>

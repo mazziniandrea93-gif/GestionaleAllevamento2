@@ -9,7 +9,7 @@ export default function LitterCard({ litter, onEdit, onDelete }) {
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
           <h3 className="text-xl font-black text-dark-900 mb-2">
-            {litter.mating?.female?.name} × {litter.mating?.male?.name}
+            {litter.mating?.female?.nickname || litter.mating?.female?.name} × {litter.mating?.male?.nickname || litter.mating?.male?.name}
           </h3>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span className="text-primary-600 font-bold">{litter.total_puppies} cuccioli</span>
