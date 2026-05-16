@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
@@ -26,6 +26,7 @@ import {
   Star,
   MessageSquare,
   X,
+  Camera,
 } from 'lucide-react'
 import { differenceInYears, differenceInMonths, format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -1067,6 +1068,54 @@ export default function DogDetail() {
   const [isPdfOpen, setIsPdfOpen] = useState(false)
   const [isDocOpen, setIsDocOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef(null)
+
+  const optimizeImage = (file) => new Promise((resolve, reject) => {
+    const MAX_PX = 1200
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      let { width, height } = img
+      if (width > MAX_PX || height > MAX_PX) {
+        if (width > height) { height = Math.round(height * MAX_PX / width); width = MAX_PX }
+        else { width = Math.round(width * MAX_PX / height); height = MAX_PX }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('Ottimizzazione fallita')); return }
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }))
+      }, 'image/webp', 0.85)
+    }
+    img.onerror = reject
+    img.src = objectUrl
+  })
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('La foto non può superare gli 8 MB')
+      return
+    }
+    setUploadingPhoto(true)
+    try {
+      const optimized = await optimizeImage(file)
+      const url = await db.uploadImage(optimized, 'dogs-photos', 'dogs')
+      await db.updateDog(id, { photo_url: url })
+      await refetch()
+      toast.success('Foto aggiornata')
+    } catch {
+      toast.error('Errore durante il caricamento della foto')
+    } finally {
+      setUploadingPhoto(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
 
   const { data: dog, isLoading, refetch } = useQuery({
     queryKey: ['dog', id],
@@ -1184,10 +1233,30 @@ export default function DogDetail() {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Dog Image */}
           <div
-            className="w-full md:w-48 h-48 rounded-2xl flex items-center justify-center text-white flex-shrink-0"
+            className="relative w-full md:w-48 h-48 rounded-2xl overflow-hidden flex-shrink-0 group cursor-pointer"
             style={{ background: dog.color ? `linear-gradient(135deg, ${dog.color}cc, ${dog.color})` : 'linear-gradient(135deg, #818cf8, #6366f1)' }}
+            onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
           >
-            <span className="text-6xl font-black">{(dog.nickname || dog.name).charAt(0).toUpperCase()}</span>
+            {dog.photo_url ? (
+              <img src={dog.photo_url} alt={dog.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white">
+                <span className="text-6xl font-black">{(dog.nickname || dog.name).charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition text-white">
+              {uploadingPhoto
+                ? <span className="text-sm font-semibold">Caricamento...</span>
+                : <><Camera className="w-7 h-7" /><span className="text-xs font-semibold">Cambia foto</span></>
+              }
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
           </div>
 
           {/* Dog Info */}

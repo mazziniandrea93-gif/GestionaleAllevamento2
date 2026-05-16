@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, X, Clock, CheckCircle, Edit, Trash2, Circle } from 'lucide-react'
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, X, Clock, CheckCircle, Edit, Trash2, Circle, RotateCcw } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -351,13 +351,13 @@ export default function Calendar() {
                         onClick={() => handleToggleComplete(event)}
                         className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-bold transition ${
                           event.completed
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
                             : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                         }`}
-                        title={event.completed ? 'Segna come non completato' : 'Segna come completato'}
+                        title={event.completed ? 'Ripristina come da fare' : 'Segna come completato'}
                       >
                         {event.completed
-                          ? <><CheckCircle className="w-4 h-4" /> Completato</>
+                          ? <><RotateCcw className="w-4 h-4" /> Da Fare</>
                           : <Circle className="w-4 h-4" />
                         }
                       </button>
@@ -476,12 +476,14 @@ export default function Calendar() {
                   onClick={() => handleToggleComplete(selectedEvent, true)}
                   className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold transition ${
                     selectedEvent.completed
-                      ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
                       : 'bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/30'
                   }`}
                 >
-                  <CheckCircle className="w-5 h-5" />
-                  Completato
+                  {selectedEvent.completed
+                    ? <><RotateCcw className="w-5 h-5" /> Da Fare</>
+                    : <><CheckCircle className="w-5 h-5" /> Completato</>
+                  }
                 </button>
                 <button
                   onClick={() => handleEdit(selectedEvent)}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, ChevronDown } from 'lucide-react'
+import { X, ChevronDown, Camera, Trash2 } from 'lucide-react'
 import { db } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -160,6 +160,9 @@ const DOG_COLORS = [
 
 export default function DogForm({ dog, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(dog?.photo_url || null)
+  const photoInputRef = useRef(null)
   const [formData, setFormData] = useState({
     name: dog?.name || '',
     nickname: dog?.nickname || '',
@@ -176,6 +179,7 @@ export default function DogForm({ dog, onClose, onSuccess }) {
     notes: dog?.notes || '',
     mother_id: dog?.mother_id || null,
     father_id: dog?.father_id || null,
+    photo_url: dog?.photo_url || '',
   })
 
   const { data: allDogs = [] } = useQuery({
@@ -186,16 +190,73 @@ export default function DogForm({ dog, onClose, onSuccess }) {
   const females = otherDogs.filter(d => d.gender?.toLowerCase() === 'femmina' || d.gender?.toLowerCase() === 'f')
   const males   = otherDogs.filter(d => d.gender?.toLowerCase() === 'maschio' || d.gender?.toLowerCase() === 'm')
 
+  const optimizeImage = (file) => new Promise((resolve, reject) => {
+    const MAX_PX = 1200
+    const QUALITY = 0.85
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      let { width, height } = img
+      if (width > MAX_PX || height > MAX_PX) {
+        if (width > height) { height = Math.round(height * MAX_PX / width); width = MAX_PX }
+        else { width = Math.round(width * MAX_PX / height); height = MAX_PX }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('Ottimizzazione fallita')); return }
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }))
+      }, 'image/webp', QUALITY)
+    }
+    img.onerror = reject
+    img.src = objectUrl
+  })
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('La foto non può superare i 8 MB')
+      return
+    }
+    try {
+      const optimized = await optimizeImage(file)
+      setPhotoFile(optimized)
+      setPhotoPreview(URL.createObjectURL(optimized))
+    } catch {
+      toast.error('Errore durante l\'ottimizzazione della foto')
+    }
+  }
+
+  const handleRemovePhoto = () => {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setFormData(prev => ({ ...prev, photo_url: '' }))
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      let dataToSave = { ...formData }
+
+      if (photoFile) {
+        const url = await db.uploadImage(photoFile, 'dogs-photos', 'dogs')
+        dataToSave.photo_url = url
+      } else if (!photoPreview) {
+        dataToSave.photo_url = ''
+      }
+
       if (dog?.id) {
-        await db.updateDog(dog.id, formData)
+        await db.updateDog(dog.id, dataToSave)
         toast.success('Cane aggiornato con successo')
       } else {
-        await db.createDog(formData)
+        await db.createDog(dataToSave)
         toast.success('Cane aggiunto con successo')
       }
       onSuccess()
@@ -228,6 +289,52 @@ export default function DogForm({ dog, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+
+          {/* Foto */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-lg text-gray-900">Foto</h4>
+            <div className="flex items-center gap-4">
+              <div
+                className="w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-primary-400 transition bg-gray-50 flex-shrink-0"
+                onClick={() => photoInputRef.current?.click()}
+              >
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Anteprima" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-gray-400">
+                    <Camera className="w-8 h-8" />
+                    <span className="text-xs">Carica foto</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="px-4 py-2 bg-primary-100 text-primary-700 rounded-xl text-sm font-semibold hover:bg-primary-200 transition"
+                >
+                  {photoPreview ? 'Cambia foto' : 'Scegli foto'}
+                </button>
+                {photoPreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-100 transition flex items-center gap-1"
+                  >
+                    <Trash2 className="w-4 h-4" /> Rimuovi
+                  </button>
+                )}
+                <p className="text-xs text-gray-400">JPG, PNG, WebP — max 5 MB</p>
+              </div>
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              className="hidden"
+            />
+          </div>
 
           <div className="space-y-4">
             <h4 className="font-bold text-lg text-gray-900">Informazioni Base</h4>

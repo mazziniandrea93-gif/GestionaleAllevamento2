@@ -1,4 +1,4 @@
-import { Calendar, Stethoscope, Scissors, Trophy, Heart, AlertCircle, Edit, Trash2, Check } from 'lucide-react'
+import { Calendar, Stethoscope, Scissors, Trophy, Heart, AlertCircle, Edit, Trash2, Check, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 
@@ -67,13 +67,13 @@ export default function EventCard({ event, onEdit, onDelete, onToggleComplete })
           <button
             onClick={() => onToggleComplete && onToggleComplete(event)}
             className={`p-2 rounded-lg transition ${
-              event.completed 
-                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
+              event.completed
+                ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
                 : 'bg-green-100 text-green-600 hover:bg-green-200'
             }`}
-            title={event.completed ? 'Segna come non completato' : 'Segna come completato'}
+            title={event.completed ? 'Ripristina come da fare' : 'Segna come completato'}
           >
-            <Check className="w-4 h-4" />
+            {event.completed ? <RotateCcw className="w-4 h-4" /> : <Check className="w-4 h-4" />}
           </button>
           <button
             onClick={() => onEdit && onEdit(event)}

@@ -11,8 +11,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, NavLink } from 'react-router-dom'
 
 export default function Header() {
-  const today = format(new Date(), "EEEE, d MMMM yyyy", { locale: it })
-  const { user, signOut } = useAuth()
+const { user, signOut } = useAuth()
   const navigate = useNavigate()
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -236,10 +235,6 @@ export default function Header() {
             <Menu className="w-6 h-6 text-gray-700" />
           </button>
 
-          {/* Desktop: Date & Time */}
-          <div className="hidden md:block">
-            <p className="text-sm text-gray-500 capitalize">{today}</p>
-          </div>
 
           {/* Search & Notifications & User */}
           <div className="flex items-center space-x-2 md:space-x-4 ml-auto">
