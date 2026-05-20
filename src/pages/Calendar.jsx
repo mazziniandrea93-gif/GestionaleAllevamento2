@@ -240,12 +240,23 @@ export default function Calendar() {
                           ) : event.dogs?.length > 0 ? (
                             <span className="flex items-center flex-shrink-0" style={{ marginLeft: '2px' }}>
                               {event.dogs.slice(0, 3).map((dog, i) => (
-                                <span
-                                  key={dog.id}
-                                  className="w-3.5 h-3.5 rounded-full border border-white block"
-                                  style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-4px' : '0' }}
-                                  title={dog.nickname || dog.name}
-                                />
+                                dog.photo_url ? (
+                                  <img
+                                    key={dog.id}
+                                    src={dog.photo_url}
+                                    alt={dog.nickname || dog.name}
+                                    className="w-3.5 h-3.5 rounded-full border border-white block object-cover flex-shrink-0"
+                                    style={{ marginLeft: i > 0 ? '-4px' : '0' }}
+                                    title={dog.nickname || dog.name}
+                                  />
+                                ) : (
+                                  <span
+                                    key={dog.id}
+                                    className="w-3.5 h-3.5 rounded-full border border-white block flex-shrink-0"
+                                    style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-4px' : '0' }}
+                                    title={dog.nickname || dog.name}
+                                  />
+                                )
                               ))}
                             </span>
                           ) : null}
@@ -321,12 +332,23 @@ export default function Calendar() {
                         <div className="flex items-center gap-2 mb-2">
                           <div className="flex items-center">
                             {event.dogs.map((dog, i) => (
-                              <div
-                                key={dog.id}
-                                className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
-                                style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-6px' : '0' }}
-                                title={dog.nickname || dog.name}
-                              />
+                              dog.photo_url ? (
+                                <img
+                                  key={dog.id}
+                                  src={dog.photo_url}
+                                  alt={dog.nickname || dog.name}
+                                  className="w-5 h-5 rounded-full border-2 border-white shadow-sm object-cover flex-shrink-0"
+                                  style={{ marginLeft: i > 0 ? '-6px' : '0' }}
+                                  title={dog.nickname || dog.name}
+                                />
+                              ) : (
+                                <div
+                                  key={dog.id}
+                                  className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                                  style={{ backgroundColor: dog.color || '#94a3b8', marginLeft: i > 0 ? '-6px' : '0' }}
+                                  title={dog.nickname || dog.name}
+                                />
+                              )
                             ))}
                           </div>
                           <span className="text-sm text-gray-600 font-semibold">
@@ -429,10 +451,18 @@ export default function Calendar() {
                   <div className="flex flex-wrap gap-3">
                     {selectedEvent.dogs.map(dog => (
                       <div key={dog.id} className="flex items-center gap-2">
-                        <div
-                          className="w-7 h-7 rounded-full border-2 border-white shadow-md flex-shrink-0"
-                          style={{ backgroundColor: dog.color || '#94a3b8' }}
-                        />
+                        {dog.photo_url ? (
+                          <img
+                            src={dog.photo_url}
+                            alt={dog.nickname || dog.name}
+                            className="w-7 h-7 rounded-full border-2 border-white shadow-md object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-7 h-7 rounded-full border-2 border-white shadow-md flex-shrink-0"
+                            style={{ backgroundColor: dog.color || '#94a3b8' }}
+                          />
+                        )}
                         <span className="font-bold text-gray-900">{dog.nickname || dog.name}</span>
                       </div>
                     ))}

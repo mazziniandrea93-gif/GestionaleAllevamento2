@@ -19,23 +19,36 @@ export default function Breeding() {
 
   const queryClient = useQueryClient()
 
+  const STALE = { staleTime: 1000 * 60 * 5 }
+
   // Query per le cucciolate
   const { data: litters = [], isLoading: littersLoading } = useQuery({
     queryKey: ['litters'],
-    queryFn: () => db.getLitters()
+    queryFn: () => db.getLitters(),
+    ...STALE,
   })
 
   // Query per i cuccioli (serve per determinare se una cucciolata è passata)
-  const { data: allPuppies = [] } = useQuery({
+  const { data: allPuppies = [], isLoading: puppiesLoading } = useQuery({
     queryKey: ['puppies'],
-    queryFn: () => db.getPuppies()
+    queryFn: () => db.getPuppies(),
+    ...STALE,
   })
 
   // Query per gli accoppiamenti
   const { data: matings = [], isLoading: matingsLoading } = useQuery({
     queryKey: ['matings'],
-    queryFn: () => db.getMatings()
+    queryFn: () => db.getMatings(),
+    ...STALE,
   })
+
+  const isLoading = littersLoading || puppiesLoading || matingsLoading
+
+  // Arricchisce le cucciolate con i dati dei genitori dai matings già caricati
+  const littersWithParents = litters.map(l => ({
+    ...l,
+    mating: matings.find(m => m.id === l.mating_id) ?? null,
+  }))
 
   // Mutation per eliminare cucciolata
   const deleteLitterMutation = useMutation({
@@ -111,7 +124,7 @@ export default function Breeding() {
   }
 
   // Filtra i risultati in base alla ricerca + sotto-tab cucciolate
-  const filteredLitters = litters.filter(litter => {
+  const filteredLitters = littersWithParents.filter(litter => {
     const matchesSearch =
       litter.mating?.female?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       litter.mating?.male?.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -226,7 +239,7 @@ export default function Breeding() {
       {/* Content - Cucciolate */}
       {activeTab === 'cucciolate' && (
         <div>
-          {littersLoading ? (
+          {isLoading ? (
             <div className="text-center py-20">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
             </div>
@@ -272,7 +285,7 @@ export default function Breeding() {
       {/* Content - Accoppiamenti */}
       {activeTab === 'accoppiamenti' && (
         <div>
-          {matingsLoading ? (
+          {isLoading ? (
             <div className="text-center py-20">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
             </div>

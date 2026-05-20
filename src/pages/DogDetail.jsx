@@ -1210,11 +1210,11 @@ export default function DogDetail() {
     { id: 'info', label: 'Informazioni' },
     { id: 'crescita', label: 'Crescita' },
     { id: 'salute', label: 'Salute' },
-    { id: 'documenti', label: 'Documenti' },
     ...(isFemale ? [{ id: 'calori', label: 'Calori' }] : []),
     { id: 'albero', label: 'Albero' },
     { id: 'giudici', label: 'Giudici' },
     { id: 'storia', label: 'Storia' },
+    { id: 'documenti', label: 'Documenti' },
   ]
 
   return (
@@ -1282,13 +1282,6 @@ export default function DogDetail() {
               </div>
 
               <div className="flex gap-2">
-                <button
-                  onClick={() => setIsPdfOpen(true)}
-                  className="p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition"
-                  title="Esporta PDF"
-                >
-                  <FileDown className="w-5 h-5" />
-                </button>
                 <button
                   onClick={() => setIsEditOpen(true)}
                   className="p-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition"
@@ -1421,11 +1414,78 @@ export default function DogDetail() {
         )}
 
         {activeTab === 'salute' && (
-          <div className="text-center py-10">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Activity className="w-8 h-8 text-red-600" />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-gray-900">Registro Sanitario</h3>
+              <span className="text-sm text-gray-400">{dogEvents.length} eventi</span>
             </div>
-            <p className="text-gray-500">Registro sanitario in arrivo</p>
+
+            {dogEvents.length === 0 ? (
+              <div className="text-center py-14">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Activity className="w-8 h-8 text-red-600" />
+                </div>
+                <p className="text-gray-500 font-medium">Nessun evento registrato</p>
+                <p className="text-gray-400 text-sm mt-1">Aggiungi eventi dal calendario collegando questo cane</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {[...dogEvents]
+                  .sort((a, b) => new Date(b.event_date) - new Date(a.event_date))
+                  .map(event => {
+                    const cfg = EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.altro
+                    const Icon = cfg.icon
+                    const isPast = new Date(event.event_date) < new Date()
+                    return (
+                      <div
+                        key={event.id}
+                        className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
+                          event.completed
+                            ? 'bg-green-50 border-green-200'
+                            : isPast
+                              ? 'bg-red-50 border-red-200'
+                              : 'bg-white border-gray-100'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
+                          <Icon className={`w-5 h-5 ${cfg.text}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-bold text-gray-900 truncate ${event.completed ? 'line-through text-gray-400' : ''}`}>
+                            {event.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                              {cfg.label}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {format(new Date(event.event_date), 'd MMM yyyy', { locale: it })}
+                            </span>
+                          </div>
+                          {event.description && (
+                            <p className="text-xs text-gray-500 mt-1 truncate">{event.description}</p>
+                          )}
+                        </div>
+                        <div className="flex-shrink-0">
+                          {event.completed ? (
+                            <span className="flex items-center gap-1 text-xs font-bold text-green-600">
+                              <CheckCircle2 className="w-4 h-4" /> Fatto
+                            </span>
+                          ) : isPast ? (
+                            <span className="flex items-center gap-1 text-xs font-bold text-red-500">
+                              <AlertCircle className="w-4 h-4" /> Scaduto
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs font-bold text-blue-500">
+                              <Clock className="w-4 h-4" /> In arrivo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
           </div>
         )}
 
@@ -1433,8 +1493,18 @@ export default function DogDetail() {
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-black text-gray-900 mb-1">Modulistica Automatica</h3>
-              <p className="text-sm text-gray-500">Genera il contratto di vendita pre-compilato con i dati del gestionale.</p>
+              <p className="text-sm text-gray-500">Genera documenti pre-compilati con i dati del gestionale.</p>
             </div>
+            <button
+              onClick={() => setIsPdfOpen(true)}
+              className="w-full flex items-center gap-4 p-6 rounded-2xl border-2 border-gray-200 hover:border-gray-400 bg-gray-50 transition text-left"
+            >
+              <span className="text-4xl">📄</span>
+              <div>
+                <p className="font-bold text-gray-900">Scheda Cane (PDF)</p>
+                <p className="text-sm text-gray-500 mt-0.5">Esporta la scheda completa del cane in PDF</p>
+              </div>
+            </button>
             <button
               onClick={() => setIsDocOpen(true)}
               className="w-full flex items-center gap-4 p-6 rounded-2xl border-2 border-green-200 hover:border-green-400 bg-green-50 transition text-left"
@@ -1446,8 +1516,7 @@ export default function DogDetail() {
               </div>
             </button>
             <p className="text-xs text-gray-400 text-center">
-              Il documento viene generato in PDF con i dati del cane e dell'allevamento già inseriti.
-              Dovrai completare solo i dati dell'acquirente.
+              I documenti vengono generati in PDF con i dati del cane e dell'allevamento già inseriti.
             </p>
           </div>
         )}

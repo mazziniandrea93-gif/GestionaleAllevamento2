@@ -64,8 +64,8 @@ export const db = {
       .from('matings')
       .select(`
         *,
-        female:dogs!matings_female_id_fkey(id, name, nickname, gender, color, breed),
-        male:dogs!matings_male_id_fkey(id, name, nickname, gender, color, breed),
+        female:dogs!female_id(id, name, gender, color, breed),
+        male:dogs!male_id(id, name, gender, color, breed),
         litters(
           id, birth_date, males, females, total_puppies, alive_puppies,
           puppies(id, name, gender, color, status)
@@ -304,11 +304,7 @@ export const db = {
           females,
           total_puppies,
           alive_puppies,
-          deceased_puppies,
-          mating:matings(
-            female:dogs!matings_female_id_fkey(name, nickname),
-            male:dogs!matings_male_id_fkey(name, nickname)
-          )
+          deceased_puppies
         )
       `)
       .order('created_at', { ascending: false })
@@ -386,7 +382,7 @@ export const db = {
     if (allDogIds.length > 0) {
       const { data: dogs } = await supabase
         .from('dogs')
-        .select('id, name, nickname, breed, color, gender')
+        .select('id, name, breed, color, gender, photo_url')
         .in('id', allDogIds)
       dogs?.forEach(d => { dogsMap[d.id] = d })
     }
@@ -638,8 +634,8 @@ export const db = {
       .from('matings')
       .select(`
         *,
-        female:dogs!matings_female_id_fkey(id, name, nickname),
-        male:dogs!matings_male_id_fkey(id, name, nickname)
+        female:dogs!female_id(id, name),
+        male:dogs!male_id(id, name)
       `)
       .order('mating_date', { ascending: false })
 
@@ -685,13 +681,7 @@ export const db = {
   async getLitters() {
     const { data, error } = await supabase
       .from('litters')
-      .select(`
-        *,
-        mating:matings(
-          female:dogs!matings_female_id_fkey(name, nickname),
-          male:dogs!matings_male_id_fkey(name, nickname)
-        )
-      `)
+      .select('*')
       .order('birth_date', { ascending: false })
 
     if (error) throw error

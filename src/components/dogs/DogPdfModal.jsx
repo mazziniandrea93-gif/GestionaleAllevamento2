@@ -352,7 +352,8 @@ const SECTIONS = [
 ]
 
 export default function DogPdfModal({ dog, dogEvents, heatCycles, onClose }) {
-  const [selected, setSelected] = useState({ info: true, salute: true, misure: true, eventi: true, calori: true })
+  const isMale = dog.gender?.toLowerCase() === 'maschio' || dog.gender?.toLowerCase() === 'm'
+  const [selected, setSelected] = useState({ info: true, salute: true, misure: true, eventi: true, calori: !isMale })
   const [generating, setGenerating] = useState(false)
   const [ready, setReady] = useState(false)
   const containerRef = useRef(null)
@@ -572,7 +573,8 @@ export default function DogPdfModal({ dog, dogEvents, heatCycles, onClose }) {
           <div className="px-6 py-5 space-y-2">
             <p className="text-sm font-semibold text-gray-500 mb-3">Scegli le sezioni da includere</p>
             {SECTIONS.map(section => {
-              const isOn = selected[section.id]
+              const isDisabled = section.id === 'calori' && isMale
+              const isOn = selected[section.id] && !isDisabled
               const counts = {
                 salute: `${healthRecords.length} record`,
                 misure: `${measurements.length} misure`,
@@ -583,10 +585,12 @@ export default function DogPdfModal({ dog, dogEvents, heatCycles, onClose }) {
                 <button
                   key={section.id}
                   type="button"
-                  onClick={() => toggle(section.id)}
+                  onClick={() => !isDisabled && toggle(section.id)}
+                  disabled={isDisabled}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition text-left ${
+                    isDisabled ? 'opacity-40 cursor-not-allowed border-gray-200 bg-gray-50' :
                     isOn ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'
-                  } ${section.required ? 'opacity-70 cursor-default' : 'cursor-pointer'}`}
+                  } ${section.required ? 'opacity-70 cursor-default' : ''}`}
                 >
                   {isOn
                     ? <CheckSquare className="w-5 h-5 text-gray-600 flex-shrink-0" />
@@ -595,8 +599,9 @@ export default function DogPdfModal({ dog, dogEvents, heatCycles, onClose }) {
                   <span className={`flex-1 text-sm font-bold ${isOn ? 'text-gray-800' : 'text-gray-500'}`}>
                     {section.label}
                     {section.required && <span className="ml-2 text-xs font-normal text-gray-400">(sempre incluso)</span>}
+                    {isDisabled && <span className="ml-2 text-xs font-normal text-gray-400">(solo femmine)</span>}
                   </span>
-                  {counts[section.id] && (
+                  {counts[section.id] && !isDisabled && (
                     <span className="text-xs text-gray-400 font-semibold">{counts[section.id]}</span>
                   )}
                 </button>

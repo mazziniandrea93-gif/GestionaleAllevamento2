@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { User, Building, Bell, Lock, Save, FileText } from 'lucide-react'
+import SimpleEditor from '@/components/ui/SimpleEditor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
@@ -429,13 +430,12 @@ export default function Settings() {
                         Usa questo campo per aggiungere condizioni specifiche del tuo allevamento
                         (es. obblighi vaccinali, condizioni di allevamento, ecc.).
                       </p>
-                      <textarea
-                        name="docPrecontrattoClausole"
+                      <SimpleEditor
                         value={formData.docPrecontrattoClausole}
-                        onChange={handleChange}
+                        onChange={e => setFormData(f => ({ ...f, docPrecontrattoClausole: e.target.value }))}
                         rows={5}
-                        placeholder={`Es:\n• Il cucciolo verrà consegnato con libretto sanitario aggiornato e prima vaccinazione effettuata.\n• L'acquirente si impegna a non utilizzare il soggetto per attività di riproduzione commerciale senza autorizzazione scritta del venditore.`}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition text-sm resize-none"
+                        accentColor="amber"
+                        placeholder={"Es:\n• Il cucciolo verrà consegnato con libretto sanitario aggiornato e prima vaccinazione effettuata.\n• L'acquirente si impegna a non utilizzare il soggetto per attività di riproduzione commerciale senza autorizzazione scritta del venditore."}
                       />
                     </div>
                   </div>
@@ -448,13 +448,12 @@ export default function Settings() {
                         Garanzie aggiuntive da inserire nell'Art. 5 del contratto, dopo quelle standard.
                         Utile per specificare garanzie sanitarie particolari della tua razza.
                       </p>
-                      <textarea
-                        name="docContrattoGaranzie"
+                      <SimpleEditor
                         value={formData.docContrattoGaranzie}
-                        onChange={handleChange}
+                        onChange={e => setFormData(f => ({ ...f, docContrattoGaranzie: e.target.value }))}
                         rows={4}
-                        placeholder={`Es:\n• Il cucciolo è stato testato per [malattia specifica] con risultato negativo.\n• Il venditore garantisce l'assenza di displasia dell'anca nei genitori (certificato HD).`}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-green-200 focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm resize-none"
+                        accentColor="green"
+                        placeholder={"Es:\n• Il cucciolo è stato testato per [malattia specifica] con risultato negativo.\n• Il venditore garantisce l'assenza di displasia dell'anca nei genitori (certificato HD)."}
                       />
                     </div>
 
@@ -464,13 +463,12 @@ export default function Settings() {
                         Testo extra che apparirà in fondo al contratto prima delle firme.
                         Puoi inserire condizioni particolari, divieti o accordi specifici.
                       </p>
-                      <textarea
-                        name="docContrattoClausole"
+                      <SimpleEditor
                         value={formData.docContrattoClausole}
-                        onChange={handleChange}
+                        onChange={e => setFormData(f => ({ ...f, docContrattoClausole: e.target.value }))}
                         rows={4}
-                        placeholder={`Es:\n• È vietata la cessione del soggetto a terzi senza preventivo accordo scritto con il venditore.\n• In caso di rinuncia del soggetto, il venditore ha diritto di prelazione sul riacquisto.`}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-green-200 focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm resize-none"
+                        accentColor="green"
+                        placeholder={"Es:\n• È vietata la cessione del soggetto a terzi senza preventivo accordo scritto con il venditore.\n• In caso di rinuncia del soggetto, il venditore ha diritto di prelazione sul riacquisto."}
                       />
                     </div>
                   </div>

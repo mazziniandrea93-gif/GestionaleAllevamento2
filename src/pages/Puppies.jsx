@@ -123,12 +123,39 @@ export default function Puppies() {
   const [selectedPuppy, setSelectedPuppy] = useState(null)
   const queryClient = useQueryClient()
 
-  const { data: allPuppies = [], isLoading } = useQuery({
+  const STALE = { staleTime: 1000 * 60 * 5 }
+
+  const { data: allPuppies = [], isLoading: puppiesLoading } = useQuery({
     queryKey: ['puppies'],
     queryFn: () => db.getPuppies(),
+    ...STALE,
   })
 
-  const filteredPuppies = allPuppies.filter(puppy => {
+  const { data: litters = [], isLoading: littersLoading } = useQuery({
+    queryKey: ['litters'],
+    queryFn: () => db.getLitters(),
+    ...STALE,
+  })
+
+  const { data: matings = [], isLoading: matingsLoading } = useQuery({
+    queryKey: ['matings'],
+    queryFn: () => db.getMatings(),
+    ...STALE,
+  })
+
+  const isLoading = puppiesLoading || littersLoading || matingsLoading
+
+  const littersWithParents = litters.map(l => ({
+    ...l,
+    mating: matings.find(m => m.id === l.mating_id) ?? null,
+  }))
+
+  const puppiesWithParents = allPuppies.map(p => ({
+    ...p,
+    litter: littersWithParents.find(l => l.id === p.litter_id) ?? p.litter,
+  }))
+
+  const filteredPuppies = puppiesWithParents.filter(puppy => {
     if (filter === 'disponibili') return puppy.status === 'disponibile'
     if (filter === 'prenotati') return puppy.status === 'prenotato'
     if (filter === 'venduti') return puppy.status === 'venduto'
@@ -162,7 +189,7 @@ export default function Puppies() {
   })
 
   // Dividi tra attuali e passate (usa tutti i cuccioli del gruppo, non solo filtrati)
-  const groupedAll = allPuppies.reduce((acc, puppy) => {
+  const groupedAll = puppiesWithParents.reduce((acc, puppy) => {
     const key = puppy.litter_id || '__nolitter__'
     if (!acc[key]) acc[key] = []
     acc[key].push(puppy)
@@ -320,16 +347,20 @@ export default function Puppies() {
       )}
 
       {/* Empty state */}
-      {!isLoading && filteredPuppies.length === 0 && (
+      {!isLoading && sortedGroups.length === 0 && (
         <div className="text-center py-20">
           <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Baby className="w-10 h-10 text-pink-600" />
           </div>
           <h3 className="text-xl font-bold text-gray-700 mb-2">
-            {filter === 'tutti' ? 'Nessun Cucciolo' : `Nessun cucciolo ${filter}`}
+            {filteredPuppies.length === 0
+              ? (filter === 'tutti' ? 'Nessun cucciolo' : `Nessun cucciolo ${filter}`)
+              : tab === 'attuali' ? 'Nessuna cucciolata in corso' : 'Nessuna cucciolata passata'}
           </h3>
           <p className="text-gray-500">
-            {filter === 'tutti' ? 'Inizia aggiungendo il tuo primo cucciolo' : `Non ci sono cuccioli con stato "${filter}"`}
+            {filteredPuppies.length === 0
+              ? (filter === 'tutti' ? 'Inizia aggiungendo il tuo primo cucciolo' : `Non ci sono cuccioli con stato "${filter}"`)
+              : tab === 'attuali' ? 'Tutti i cuccioli sono in cucciolate passate' : 'Nessuna cucciolata è ancora terminata'}
           </p>
         </div>
       )}
