@@ -37,6 +37,7 @@ import DogGrowthChart from '@/components/dogs/DogGrowthChart'
 import DogPdfModal from '@/components/dogs/DogPdfModal'
 import FamilyTree from '@/components/dogs/FamilyTree'
 import DocumentiModal from '@/components/dogs/DocumentiModal'
+import EventForm from '@/components/calendar/EventForm'
 
 const EVENT_TYPE_CONFIG = {
   veterinario:    { label: 'Veterinario',    icon: Stethoscope, bg: 'bg-blue-100',   text: 'text-blue-700'   },
@@ -47,7 +48,7 @@ const EVENT_TYPE_CONFIG = {
   altro:          { label: 'Altro',           icon: Calendar,    bg: 'bg-gray-100',   text: 'text-gray-700'   },
 }
 
-function DogHistory({ dogEvents, heatCycles }) {
+function DogHistory({ dogEvents, heatCycles, onNewEvent }) {
   const [activeFilter, setActiveFilter] = useState('tutti')
 
   // Unifica eventi calendario e calori in un unico array ordinato per data
@@ -95,7 +96,12 @@ function DogHistory({ dogEvents, heatCycles }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-black text-gray-900">Storico Eventi</h3>
-        <span className="text-sm text-gray-400 font-semibold">{filtered.length} eventi</span>
+        <button
+          onClick={onNewEvent}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 transition"
+        >
+          <Plus className="w-4 h-4" /> Nuovo Evento
+        </button>
       </div>
 
       {/* Filtri per tipo */}
@@ -163,9 +169,12 @@ function DogHistory({ dogEvents, heatCycles }) {
                     )}
                   </div>
                   <p className="font-bold text-gray-900">{item.title}</p>
-                  {item.description && !item.description.includes('__heat_dog:') && (
-                    <p className="text-sm text-gray-600 mt-0.5">{item.description}</p>
-                  )}
+                  {item.description && (() => {
+                    const clean = item.description.replace(/__mating_id:[a-f0-9-]+__/g, '').trim()
+                    return clean && !clean.includes('__heat_dog:')
+                      ? <p className="text-sm text-gray-600 mt-0.5">{clean}</p>
+                      : null
+                  })()}
                   <p className="text-xs text-gray-400 font-semibold mt-1">{dateStr}</p>
                 </div>
               </div>
@@ -1067,6 +1076,7 @@ export default function DogDetail() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isPdfOpen, setIsPdfOpen] = useState(false)
   const [isDocOpen, setIsDocOpen] = useState(false)
+  const [isEventOpen, setIsEventOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef(null)
@@ -1299,7 +1309,7 @@ export default function DogDetail() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Award className="w-5 h-5 text-purple-600" />
@@ -1331,31 +1341,51 @@ export default function DogDetail() {
                   </p>
                 </div>
               </div>
+
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Activity className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold">Peso</p>
+                  <p className="text-sm font-bold text-gray-900">{dog.weight ? `${dog.weight} kg` : 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <MapPin className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold">Altezza</p>
+                  <p className="text-sm font-bold text-gray-900">{dog.height ? `${dog.height} cm` : 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Star className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold">Pedigree</p>
+                  <p className="text-sm font-bold text-gray-900">{dog.pedigree_number || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <MessageSquare className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold">Microchip</p>
+                  <p className="text-sm font-bold text-gray-900">{dog.microchip || 'N/A'}</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border-2 border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Peso</p>
-          <p className="text-2xl font-black text-blue-600">{dog.weight ? `${dog.weight} kg` : 'N/A'}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border-2 border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Altezza</p>
-          <p className="text-2xl font-black text-green-600">{dog.height ? `${dog.height} cm` : 'N/A'}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border-2 border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Colore</p>
-          <p className="text-lg font-black text-purple-600">{dog.coat_color || 'N/A'}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border-2 border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Microchip</p>
-          <p className="text-sm font-black text-orange-600">{dog.microchip || 'N/A'}</p>
         </div>
       </div>
 
@@ -1384,13 +1414,52 @@ export default function DogDetail() {
               <h3 className="text-xl font-black text-gray-900 mb-4">Informazioni Generali</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm font-semibold text-gray-500 mb-1">Pedigree</p>
-                  <p className="font-bold text-gray-900">{dog.pedigree_number || 'Non disponibile'}</p>
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Nome completo</p>
+                  <p className="font-bold text-gray-900">{dog.name || '—'}</p>
                 </div>
-
+                {dog.nickname && (
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <p className="text-sm font-semibold text-gray-500 mb-1">Soprannome</p>
+                    <p className="font-bold text-gray-900">{dog.nickname}</p>
+                  </div>
+                )}
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Razza</p>
+                  <p className="font-bold text-gray-900">{dog.breed || '—'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Sesso</p>
+                  <p className="font-bold text-gray-900">{dog.gender || '—'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Data di nascita</p>
+                  <p className="font-bold text-gray-900">
+                    {dog.birth_date ? format(new Date(dog.birth_date), 'dd MMM yyyy', { locale: it }) : '—'}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Stato</p>
+                  <p className="font-bold text-gray-900 capitalize">{dog.status || '—'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Colore manto</p>
+                  <p className="font-bold text-gray-900">{dog.coat_color || '—'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Peso</p>
+                  <p className="font-bold text-gray-900">{dog.weight ? `${dog.weight} kg` : '—'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Altezza</p>
+                  <p className="font-bold text-gray-900">{dog.height ? `${dog.height} cm` : '—'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-500 mb-1">Pedigree</p>
+                  <p className="font-bold text-gray-900">{dog.pedigree_number || '—'}</p>
+                </div>
                 <div className="p-4 bg-gray-50 rounded-xl">
                   <p className="text-sm font-semibold text-gray-500 mb-1">Microchip</p>
-                  <p className="font-bold text-gray-900">{dog.microchip || 'Non disponibile'}</p>
+                  <p className="font-bold text-gray-900">{dog.microchip || '—'}</p>
                 </div>
               </div>
             </div>
@@ -1417,7 +1486,12 @@ export default function DogDetail() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-gray-900">Registro Sanitario</h3>
-              <span className="text-sm text-gray-400">{dogEvents.length} eventi</span>
+              <button
+                onClick={() => setIsEventOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 transition"
+              >
+                <Plus className="w-4 h-4" /> Nuovo Evento
+              </button>
             </div>
 
             {dogEvents.length === 0 ? (
@@ -1462,9 +1536,10 @@ export default function DogDetail() {
                               {format(new Date(event.event_date), 'd MMM yyyy', { locale: it })}
                             </span>
                           </div>
-                          {event.description && (
-                            <p className="text-xs text-gray-500 mt-1 truncate">{event.description}</p>
-                          )}
+                          {event.description && (() => {
+                            const clean = event.description.replace(/__mating_id:[a-f0-9-]+__/g, '').trim()
+                            return clean ? <p className="text-xs text-gray-500 mt-1 truncate">{clean}</p> : null
+                          })()}
                         </div>
                         <div className="flex-shrink-0">
                           {event.completed ? (
@@ -1539,7 +1614,7 @@ export default function DogDetail() {
         )}
 
         {activeTab === 'storia' && (
-          <DogHistory dogEvents={dogEvents} heatCycles={heatCycles} />
+          <DogHistory dogEvents={dogEvents} heatCycles={heatCycles} onNewEvent={() => setIsEventOpen(true)} />
         )}
       </div>
 
@@ -1571,6 +1646,18 @@ export default function DogDetail() {
           dog={dog}
           filterTypes={['contratto']}
           onClose={() => setIsDocOpen(false)}
+        />
+      )}
+
+      {/* Nuovo Evento Modal */}
+      {isEventOpen && (
+        <EventForm
+          defaultDogIds={[id]}
+          onClose={() => setIsEventOpen(false)}
+          onSuccess={() => {
+            setIsEventOpen(false)
+            queryClient.invalidateQueries(['events', 'dog', id])
+          }}
         />
       )}
     </div>

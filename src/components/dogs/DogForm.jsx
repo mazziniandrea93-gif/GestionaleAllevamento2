@@ -158,7 +158,7 @@ const DOG_COLORS = [
   { hex: '#64748b', label: 'Ardesia'   },
 ]
 
-export default function DogForm({ dog, onClose, onSuccess }) {
+export default function DogForm({ dog, defaultGender, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(dog?.photo_url || null)
@@ -167,7 +167,7 @@ export default function DogForm({ dog, onClose, onSuccess }) {
     name: dog?.name || '',
     nickname: dog?.nickname || '',
     breed: dog?.breed || '',
-    gender: dog?.gender || 'maschio',
+    gender: dog?.gender || defaultGender || 'maschio',
     birth_date: dog?.birth_date || '',
     microchip: dog?.microchip || '',
     pedigree_number: dog?.pedigree_number || '',
@@ -255,11 +255,12 @@ export default function DogForm({ dog, onClose, onSuccess }) {
       if (dog?.id) {
         await db.updateDog(dog.id, dataToSave)
         toast.success('Cane aggiornato con successo')
+        onSuccess()
       } else {
-        await db.createDog(dataToSave)
+        const created = await db.createDog(dataToSave)
         toast.success('Cane aggiunto con successo')
+        onSuccess(created)
       }
-      onSuccess()
     } catch (error) {
       console.error('Error saving dog:', error)
       toast.error(error.message || 'Errore durante il salvataggio')

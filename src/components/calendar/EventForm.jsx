@@ -32,7 +32,7 @@ function buildAutoTitle(eventType, dogIds, allDogs, matingId, allMatings) {
   return `${base} - ${selected.map(d => d.name).join(', ')}`
 }
 
-export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
+export default function EventForm({ event, selectedDate, defaultDogIds, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [dogSearch, setDogSearch] = useState('')
   const overlayRef = useRef(null)
@@ -53,7 +53,7 @@ export default function EventForm({ event, selectedDate, onClose, onSuccess }) {
     : ''
 
   const [formData, setFormData] = useState({
-    dog_ids: event?.dog_ids || [],
+    dog_ids: event?.dog_ids || defaultDogIds || [],
     event_type: event?.event_type || 'veterinario',
     title: event?.title || '',
     description: existingUserDescription,

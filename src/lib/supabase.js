@@ -59,6 +59,23 @@ export const db = {
     return data
   },
 
+  async getDogWithAncestors(id) {
+    const lvl3 = `id, name, nickname, breed, gender, color, birth_date, status`
+    const lvl2 = `id, name, nickname, breed, gender, color, birth_date, status,
+      mother:dogs!dogs_mother_id_fkey(${lvl3}),
+      father:dogs!dogs_father_id_fkey(${lvl3})`
+    const lvl1 = `id, name, nickname, breed, gender, color, birth_date, status,
+      mother:dogs!dogs_mother_id_fkey(${lvl2}),
+      father:dogs!dogs_father_id_fkey(${lvl2})`
+    const { data, error } = await supabase
+      .from('dogs')
+      .select(`*, mother:dogs!dogs_mother_id_fkey(${lvl1}), father:dogs!dogs_father_id_fkey(${lvl1})`)
+      .eq('id', id)
+      .single()
+    if (error) return null
+    return data
+  },
+
   async getMatingsForDog(dogId) {
     const { data, error } = await supabase
       .from('matings')
@@ -96,9 +113,10 @@ export const db = {
 
   async updateDog(id, updates) {
     const payload = { ...updates }
-    if (!payload.microchip) payload.microchip = null
-    if (payload.weight === '' || payload.weight === undefined) payload.weight = null
-    if (payload.height === '' || payload.height === undefined) payload.height = null
+    // Nullifica solo se il campo è stato esplicitamente passato come stringa vuota
+    if ('microchip' in payload && !payload.microchip) payload.microchip = null
+    if ('weight'   in payload && (payload.weight === '' || payload.weight === null)) payload.weight = null
+    if ('height'   in payload && (payload.height === '' || payload.height === null)) payload.height = null
 
     const { data, error } = await supabase
       .from('dogs')
