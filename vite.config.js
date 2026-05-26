@@ -59,9 +59,20 @@ export default defineConfig({
   },
   // Gestione SPA routing - fallback a index.html per tutte le route
   build: {
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts') || id.includes('d3-')) return 'charts'
+            if (id.includes('@xyflow') || id.includes('react-d3-tree') || id.includes('dagre')) return 'flow'
+            if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf'
+            if (id.includes('@supabase')) return 'supabase'
+            if (id.includes('react-router-dom') || id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) return 'forms-router'
+            if (id.includes('react') || id.includes('react-dom')) return 'react'
+            return 'vendor'
+          }
+        },
       },
     },
   },
