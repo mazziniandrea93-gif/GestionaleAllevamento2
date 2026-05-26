@@ -68,8 +68,6 @@ export default defineConfig({
             if (id.includes('@xyflow') || id.includes('react-d3-tree') || id.includes('dagre')) return 'flow'
             if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf'
             if (id.includes('@supabase')) return 'supabase'
-            if (id.includes('react-router-dom') || id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) return 'forms-router'
-            if (id.includes('react') || id.includes('react-dom')) return 'react'
             return 'vendor'
           }
         },
