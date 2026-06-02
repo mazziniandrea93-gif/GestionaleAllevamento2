@@ -174,65 +174,28 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <div
-            key={stat.name}
-            className={`bg-gradient-to-br ${stat.gradient} p-8 rounded-[40px] shadow-lg text-white relative overflow-hidden`}
-          >
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <p className="font-bold opacity-80 uppercase text-xs">{stat.name}</p>
-                <stat.icon className="w-6 h-6 opacity-50" />
-              </div>
-              <h3 className="text-5xl font-black mb-3">{stat.value}</h3>
-            </div>
-            
-            {/* Decorative element */}
-            <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
-          </div>
-        ))}
-      </div>
-
-      {/* Profit/Loss Card */}
-      <div className={`p-8 rounded-[40px] shadow-lg ${profit >= 0 ? 'bg-gradient-to-br from-green-100 to-emerald-100' : 'bg-gradient-to-br from-red-100 to-orange-100'}`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-gray-600 uppercase">Bilancio Annuale {currentYear}</p>
-            <h3 className="text-4xl font-black mt-2">
-              €{Math.abs(profit).toFixed(2)}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {profit >= 0 ? 'Profitto' : 'Perdita'} quest'anno
-            </p>
-          </div>
-          <DollarSign className={`w-20 h-20 ${profit >= 0 ? 'text-green-600' : 'text-red-600'} opacity-20`} />
-        </div>
-      </div>
-
       {/* Two Columns: Events & Recent Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Upcoming Events */}
-        <div className="bg-orange-50 p-8 rounded-[40px] shadow-sm">
+        <div className="bg-gradient-to-br from-primary-800 to-primary-950 p-8 rounded-[40px] shadow-lg">
           <div className="flex items-center justify-between mb-6">
-            <h4 className="text-xl font-black">Prossimi Eventi</h4>
-            <Calendar className="w-6 h-6 text-orange-500" />
+            <h4 className="text-xl font-black text-white">Prossimi Eventi</h4>
+            <Calendar className="w-6 h-6 text-primary-100" />
           </div>
           
           <div className="space-y-3">
             {upcomingEvents?.slice(0, 5).map((event) => (
               <div
                 key={event.id}
-                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm hover:shadow-md transition group"
+                className="bg-white/10 hover:bg-white/20 p-4 rounded-3xl flex items-center justify-between transition group border border-white/10"
               >
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-orange-600" />
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="font-bold text-sm">{event.title}</p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="font-bold text-sm text-white">{event.title}</p>
+                    <p className="text-[10px] text-primary-200">
                       {format(new Date(event.event_date), 'dd MMM yyyy', { locale: it })}
                     </p>
                   </div>
@@ -251,29 +214,29 @@ export default function Dashboard() {
                     className="p-1.5 rounded-lg text-gray-300 hover:text-green-500 hover:bg-green-50 transition opacity-0 group-hover:opacity-100"
                     title="Fatto"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <CheckCircle2 className="w-[1.05rem] h-[1.05rem]" />
                   </button>
                   <button
                     onClick={() => setEditingEvent(event)}
                     className="p-1.5 rounded-lg text-gray-300 hover:text-orange-500 hover:bg-orange-50 transition opacity-0 group-hover:opacity-100"
                     title="Modifica"
                   >
-                    <Edit className="w-3.5 h-3.5" />
+                    <Edit className="w-[1.05rem] h-[1.05rem]" />
                   </button>
                   <button
                     onClick={() => handleDeleteEvent(event)}
                     className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
                     title="Elimina"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-[1.05rem] h-[1.05rem]" />
                   </button>
                 </div>
               </div>
             ))}
             
             {(!upcomingEvents || upcomingEvents.length === 0) && (
-              <div className="text-center py-8 text-gray-400">
-                <Calendar className="w-12 h-12 mx-auto mb-2 opacity-20" />
+              <div className="text-center py-8 text-primary-200">
+                <Calendar className="w-12 h-12 mx-auto mb-2 opacity-40" />
                 <p className="text-sm">Nessun evento in programma</p>
               </div>
             )}
@@ -281,42 +244,42 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Transactions */}
-        <div className="bg-green-50 p-8 rounded-[40px] shadow-sm">
-          <h4 className="text-xl font-black mb-6">Transazioni Recenti</h4>
+        <div className="bg-gradient-to-br from-primary-800 to-primary-950 p-8 rounded-[40px] shadow-lg">
+          <h4 className="text-xl font-black mb-6 text-white">Transazioni Recenti</h4>
           
           <div className="space-y-3">
             {/* Income */}
             {income?.slice(0, 3).map((item) => (
               <div
                 key={item.id}
-                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm hover:shadow-md transition group"
+                className="bg-white/10 hover:bg-white/20 p-4 rounded-3xl flex items-center justify-between transition group border border-white/10"
               >
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-green-600" />
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="font-bold text-sm">{item.description}</p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="font-bold text-sm text-white">{item.description}</p>
+                    <p className="text-[10px] text-primary-200">
                       {format(new Date(item.income_date), 'dd MMM yyyy', { locale: it })}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-green-600 font-bold">+€{item.amount}</span>
+                  <span className="text-green-300 font-bold">+€{item.amount}</span>
                   <button
                     onClick={() => setEditingTransaction({ ...item, type: 'income' })}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-green-500 hover:bg-green-50 transition opacity-0 group-hover:opacity-100"
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-orange-500 hover:bg-orange-50 transition opacity-0 group-hover:opacity-100"
                     title="Modifica"
                   >
-                    <Edit className="w-3.5 h-3.5" />
+                    <Edit className="w-[1.05rem] h-[1.05rem]" />
                   </button>
                   <button
                     onClick={() => handleDeleteTransaction({ ...item, type: 'income' })}
                     className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
                     title="Elimina"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-[1.05rem] h-[1.05rem]" />
                   </button>
                 </div>
               </div>
@@ -326,34 +289,34 @@ export default function Dashboard() {
             {expenses?.slice(0, 2).map((item) => (
               <div
                 key={item.id}
-                className="bg-white p-4 rounded-3xl flex items-center justify-between shadow-sm hover:shadow-md transition group"
+                className="bg-white/10 hover:bg-white/20 p-4 rounded-3xl flex items-center justify-between transition group border border-white/10"
               >
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <TrendingDown className="w-5 h-5 text-red-600" />
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    <TrendingDown className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="font-bold text-sm">{item.description}</p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="font-bold text-sm text-white">{item.description}</p>
+                    <p className="text-[10px] text-primary-200">
                       {format(new Date(item.expense_date), 'dd MMM yyyy', { locale: it })}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-red-600 font-bold">-€{item.amount}</span>
+                  <span className="text-red-300 font-bold">-€{item.amount}</span>
                   <button
                     onClick={() => setEditingTransaction({ ...item, type: 'expense' })}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-orange-500 hover:bg-orange-50 transition opacity-0 group-hover:opacity-100"
                     title="Modifica"
                   >
-                    <Edit className="w-3.5 h-3.5" />
+                    <Edit className="w-[1.05rem] h-[1.05rem]" />
                   </button>
                   <button
                     onClick={() => handleDeleteTransaction({ ...item, type: 'expense' })}
                     className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
                     title="Elimina"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-[1.05rem] h-[1.05rem]" />
                   </button>
                 </div>
               </div>
@@ -361,6 +324,42 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Profit/Loss Card */}
+      <div className={`p-8 rounded-[40px] shadow-lg ${profit >= 0 ? 'bg-gradient-to-br from-green-100 to-emerald-100' : 'bg-gradient-to-br from-red-100 to-orange-100'}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-gray-600 uppercase">Bilancio Annuale {currentYear}</p>
+            <h3 className="text-4xl font-black mt-2">
+              €{Math.abs(profit).toFixed(2)}
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {profit >= 0 ? 'Profitto' : 'Perdita'} quest'anno
+            </p>
+          </div>
+          <DollarSign className={`w-20 h-20 ${profit >= 0 ? 'text-green-600' : 'text-red-600'} opacity-20`} />
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat) => (
+          <div
+            key={stat.name}
+            className={`bg-gradient-to-br ${stat.gradient} p-8 rounded-[40px] shadow-lg text-white relative overflow-hidden`}
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <p className="font-bold opacity-80 uppercase text-xs">{stat.name}</p>
+                <stat.icon className="w-6 h-6 opacity-50" />
+              </div>
+              <h3 className="text-5xl font-black mb-3">{stat.value}</h3>
+            </div>
+            <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
+          </div>
+        ))}
+      </div>
+
       {/* Popup conferma */}
       {confirmDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">

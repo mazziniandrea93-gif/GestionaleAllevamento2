@@ -8,12 +8,10 @@ export default function TransactionCard({ transaction, type, onEdit, onDelete })
 
   const getCategoryLabel = (category) => {
     const labels = {
-      // Income
       vendita_cucciolo: 'Vendita Cucciolo',
       monta: 'Monta',
       pensione: 'Pensione',
       addestramento: 'Addestramento',
-      // Expense
       veterinario: 'Veterinario',
       alimentazione: 'Alimentazione',
       toelettatura: 'Toelettatura',
@@ -33,11 +31,10 @@ export default function TransactionCard({ transaction, type, onEdit, onDelete })
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
             isIncome ? 'bg-green-100' : 'bg-red-100'
           }`}>
-            {isIncome ? (
-              <TrendingUp className={`w-6 h-6 ${isIncome ? 'text-green-600' : 'text-red-600'}`} />
-            ) : (
-              <TrendingDown className="w-6 h-6 text-red-600" />
-            )}
+            {isIncome
+              ? <TrendingUp className="w-6 h-6 text-green-600" />
+              : <TrendingDown className="w-6 h-6 text-red-600" />
+            }
           </div>
 
           <div className="flex-1 min-w-0">
@@ -51,16 +48,14 @@ export default function TransactionCard({ transaction, type, onEdit, onDelete })
         </div>
 
         <div className="flex items-start gap-2 ml-3">
-          <div className={`text-right ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
-            <p className="text-2xl font-black">
-              {isIncome ? '+' : '-'}€{parseFloat(transaction.amount).toFixed(2)}
-            </p>
-          </div>
+          <p className={`text-2xl font-black ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
+            {isIncome ? '+' : '-'}€{parseFloat(transaction.amount).toFixed(2)}
+          </p>
           <div className="flex gap-1 ml-2">
             {onEdit && (
               <button
                 onClick={() => onEdit(transaction)}
-                className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition"
+                className="p-2 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition"
                 title="Modifica"
               >
                 <Edit className="w-4 h-4" />
@@ -69,7 +64,7 @@ export default function TransactionCard({ transaction, type, onEdit, onDelete })
             {onDelete && (
               <button
                 onClick={() => onDelete(transaction)}
-                className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition"
+                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
                 title="Elimina"
               >
                 <Trash2 className="w-4 h-4" />
@@ -95,13 +90,11 @@ export default function TransactionCard({ transaction, type, onEdit, onDelete })
           )}
         </div>
 
-        <div className="flex gap-2">
-          {transaction.dog?.name && (
-            <span className="text-xs text-gray-500 font-semibold">
-              🐕 {transaction.dog.name}
-            </span>
-          )}
-        </div>
+        {transaction.dog?.name && (
+          <span className="text-xs text-gray-500 font-semibold">
+            🐕 {transaction.dog.name}
+          </span>
+        )}
       </div>
 
       {transaction.notes && (
@@ -112,4 +105,3 @@ export default function TransactionCard({ transaction, type, onEdit, onDelete })
     </div>
   )
 }
-

@@ -225,15 +225,23 @@ const { user, signOut } = useAuth()
 
   return (
     <>
-      <header className="bg-white border-b border-gray-200 p-4 md:p-6">
+      <header className="bg-white border-b border-gray-100 p-4 md:p-6">
         <div className="flex justify-between items-center">
-          {/* Mobile: Hamburger Menu */}
-          <button
-            onClick={() => setShowMobileMenu(true)}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition"
-          >
-            <Menu className="w-6 h-6 text-gray-700" />
-          </button>
+          {/* Mobile: Hamburger Menu + Logo */}
+          <div className="flex items-center gap-3 md:hidden">
+            <button
+              onClick={() => setShowMobileMenu(true)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              <Menu className="w-6 h-6 text-gray-700" />
+            </button>
+            <img src="/logo.svg" alt="Allevamento Digitale" className="h-6" />
+          </div>
+
+          {/* Desktop: Logo */}
+          <div className="hidden md:flex items-center">
+            <img src="/logo.svg" alt="Allevamento Digitale" className="h-7" />
+          </div>
 
 
           {/* Search & Notifications & User */}
@@ -246,7 +254,7 @@ const { user, signOut } = useAuth()
                 placeholder="Cerca cane, cucciolo, evento..."
                 value={searchTerm}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 rounded-full border border-gray-200 focus:ring-2 focus:ring-primary-300 focus:border-transparent outline-none w-48 md:w-64"
+                className="pl-10 pr-4 py-2 rounded-full border border-gray-200 focus:ring-2 focus:ring-primary-300 focus:border-transparent outline-none w-48 md:w-64 text-sm"
               />
             {searchTerm && (
               <button
@@ -372,7 +380,7 @@ const { user, signOut } = useAuth()
                 <p className="text-xs text-gray-500">Allevatore</p>
               </div>
               {/* Avatar - Always visible */}
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-primary-900 rounded-full flex items-center justify-center">
                 <User className="w-4 h-4 text-white" />
               </div>
             </button>
@@ -438,16 +446,11 @@ const { user, signOut } = useAuth()
           ></div>
 
           {/* Offcanvas Sidebar */}
-          <div className="fixed top-0 left-0 bottom-0 w-80 bg-dark-900 text-white z-50 md:hidden overflow-y-auto">
+          <div className="fixed top-0 left-0 bottom-0 w-80 bg-primary-900 text-white z-50 md:hidden overflow-y-auto">
             <div className="p-6">
               {/* Header con Logo e Close */}
               <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h1 className="text-2xl font-black tracking-tight">
-                    🐕 ALLEVAMENTO
-                  </h1>
-                  <p className="text-xs text-gray-400 mt-1">Gestionale Professionale</p>
-                </div>
+                <img src="/logo.svg" alt="Allevamento Digitale" className="h-7 brightness-0 invert" />
                 <button
                   onClick={() => setShowMobileMenu(false)}
                   className="p-2 hover:bg-white/10 rounded-lg transition"
@@ -459,7 +462,7 @@ const { user, signOut } = useAuth()
               {/* User Info */}
               <div className="mb-8 p-4 bg-white/5 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-primary-700 rounded-full flex items-center justify-center">
                     <User className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -480,8 +483,8 @@ const { user, signOut } = useAuth()
                     className={({ isActive }) =>
                       `flex items-center gap-3 p-3 rounded-xl transition ${
                         isActive
-                          ? 'bg-primary-500 text-white'
-                          : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                          ? 'bg-primary-100 text-primary-900 font-semibold'
+                          : 'text-primary-200 hover:bg-white/10 hover:text-white'
                       }`
                     }
                   >
