@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { User, Building, Bell, Lock, Save, FileText } from 'lucide-react'
+import { User, Building, Bell, Lock, Save, FileText, BellOff, BellRing, Smartphone, Info } from 'lucide-react'
 import SimpleEditor from '@/components/ui/SimpleEditor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { useNotifications } from '@/hooks/useNotifications'
 import toast from 'react-hot-toast'
 
 export default function Settings() {
   const { user } = useAuth()
+  const { isSubscribed, permission, isReady, enableNotifications, disableNotifications } = useNotifications()
   const [activeTab, setActiveTab] = useState('profilo')
   const [loading, setLoading] = useState(false)
   const [settingsId, setSettingsId] = useState(null)
@@ -489,27 +491,123 @@ export default function Settings() {
 
             {activeTab === 'notifiche' && (
               <div className="space-y-6">
-                <h3 className="text-xl font-black text-gray-900">Preferenze Notifiche</h3>
-
-                <div className="space-y-4">
-                  {[
-                    { id: 'email', label: 'Notifiche Email', description: 'Ricevi aggiornamenti via email' },
-                    { id: 'vaccini', label: 'Scadenza Vaccini', description: 'Avvisi per vaccini in scadenza' },
-                    { id: 'eventi', label: 'Eventi Calendario', description: 'Promemoria per eventi programmati' },
-                    { id: 'cucciolate', label: 'Nuove Cucciolate', description: 'Notifiche per nuove cucciolate' },
-                  ].map((notif) => (
-                    <div key={notif.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div>
-                        <p className="font-semibold text-gray-900">{notif.label}</p>
-                        <p className="text-sm text-gray-500">{notif.description}</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-                      </label>
-                    </div>
-                  ))}
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">Notifiche Push</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Ricevi promemoria su telefono e PC anche quando il gestionale è chiuso.
+                  </p>
                 </div>
+
+                {/* Stato attuale */}
+                {!isReady ? (
+                  <div className="flex items-center gap-3 p-5 bg-gray-50 rounded-2xl border-2 border-gray-100">
+                    <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-t-primary-500 animate-spin" />
+                    <span className="text-sm text-gray-500">Controllo stato notifiche…</span>
+                  </div>
+                ) : permission === 'denied' ? (
+                  /* Permesso revocato */
+                  <div className="p-5 bg-red-50 rounded-2xl border-2 border-red-200 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <BellOff className="w-6 h-6 text-red-500 shrink-0" />
+                      <div>
+                        <p className="font-bold text-red-800">Notifiche bloccate dal browser</p>
+                        <p className="text-sm text-red-600 mt-0.5">
+                          Hai bloccato le notifiche in precedenza. Per riattivarle devi farlo manualmente nelle impostazioni del browser.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-red-100 rounded-xl p-4 text-sm text-red-700 space-y-1">
+                      <p className="font-semibold">Come sbloccare:</p>
+                      <p>🖥️ <strong>PC Chrome/Edge:</strong> clicca il lucchetto 🔒 nella barra URL → Notifiche → Consenti</p>
+                      <p>📱 <strong>Android Chrome:</strong> Impostazioni browser → Notifiche sito → rimuovi il blocco</p>
+                      <p>🍎 <strong>iPhone Safari:</strong> Impostazioni → Safari → Impostazioni avanzate → Notifiche</p>
+                    </div>
+                  </div>
+                ) : isSubscribed ? (
+                  /* Attive */
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-5 bg-green-50 rounded-2xl border-2 border-green-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                          <BellRing className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-green-800">Notifiche attive ✓</p>
+                          <p className="text-sm text-green-600">
+                            Questo dispositivo riceverà i promemoria del calendario.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          await disableNotifications()
+                          toast.success('Notifiche disattivate')
+                        }}
+                        className="px-4 py-2 bg-white border-2 border-gray-200 text-gray-600 font-bold text-sm rounded-xl hover:border-red-300 hover:text-red-600 transition"
+                      >
+                        Disattiva
+                      </button>
+                    </div>
+
+                    {/* Come funzionano */}
+                    <div className="p-5 bg-blue-50 rounded-2xl border-2 border-blue-100 space-y-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Info className="w-4 h-4 text-blue-500" />
+                        <p className="font-bold text-blue-800 text-sm">Come funzionano i promemoria</p>
+                      </div>
+                      <p className="text-sm text-blue-700">
+                        Ogni evento del calendario ha un campo <strong>"Giorni promemoria"</strong>: la notifica arriva esattamente quel numero di giorni prima dell'evento.
+                      </p>
+                      <p className="text-sm text-blue-600">
+                        Es. visita veterinaria il 10 giugno con promemoria = 2 → notifica l'8 giugno mattina.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Non attive */
+                  <div className="space-y-4">
+                    <div className="p-5 bg-gray-50 rounded-2xl border-2 border-gray-200">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center shrink-0">
+                          <Bell className="w-5 h-5 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-800">Notifiche non attive</p>
+                          <p className="text-sm text-gray-500">Attivale per ricevere i promemoria del calendario.</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const ok = await enableNotifications()
+                          if (ok) toast.success('Notifiche attivate! 🔔')
+                          else toast.error('Impossibile attivare le notifiche. Controlla le impostazioni del browser.')
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30"
+                      >
+                        <BellRing className="w-5 h-5" />
+                        Attiva Notifiche Push
+                      </button>
+                    </div>
+
+                    {/* Guida iPhone */}
+                    <div className="p-5 bg-amber-50 rounded-2xl border-2 border-amber-200 space-y-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Smartphone className="w-4 h-4 text-amber-600" />
+                        <p className="font-bold text-amber-800 text-sm">Uso su iPhone?</p>
+                      </div>
+                      <p className="text-sm text-amber-700">
+                        Su iOS le notifiche push funzionano solo se aggiungi il gestionale alla <strong>schermata Home</strong>:
+                      </p>
+                      <ol className="text-sm text-amber-700 space-y-1 list-decimal list-inside">
+                        <li>Apri questa pagina in <strong>Safari</strong></li>
+                        <li>Tocca il tasto <strong>Condividi</strong> (□↑)</li>
+                        <li>Seleziona <strong>"Aggiungi a Home"</strong></li>
+                        <li>Riapri l'app dalla schermata Home e attiva le notifiche</li>
+                      </ol>
+                      <p className="text-xs text-amber-600 mt-1">Richiede iOS 16.4 o superiore.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

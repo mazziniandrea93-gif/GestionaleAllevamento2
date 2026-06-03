@@ -409,7 +409,7 @@ export default function Calendar() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-primary-500 to-primary-600 px-8 py-6 rounded-t-3xl">
+            <div className="bg-gradient-to-br from-primary-800 to-primary-950 px-8 py-6 rounded-t-3xl">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <h3 className={`text-2xl font-black text-white mb-2 ${selectedEvent.completed ? 'line-through' : ''}`}>
@@ -471,12 +471,15 @@ export default function Calendar() {
               )}
 
               {/* Description */}
-              {selectedEvent.description && (
-                <div>
-                  <div className="text-sm font-bold text-gray-500 mb-2">Descrizione</div>
-                  <p className="text-gray-700 leading-relaxed">{selectedEvent.description}</p>
-                </div>
-              )}
+              {selectedEvent.description && (() => {
+                const cleanDesc = selectedEvent.description.replace(/__mating_id:[a-f0-9-]+__/g, '').trim()
+                return cleanDesc ? (
+                  <div>
+                    <div className="text-sm font-bold text-gray-500 mb-2">Descrizione</div>
+                    <p className="text-gray-700 leading-relaxed">{cleanDesc}</p>
+                  </div>
+                ) : null
+              })()}
 
               {/* Status */}
               <div>
