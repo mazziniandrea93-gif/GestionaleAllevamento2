@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 export default function Settings() {
   const { user } = useAuth()
   const { isSubscribed, permission, isReady, enableNotifications, disableNotifications } = useNotifications()
+  const [notifLoading, setNotifLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('profilo')
   const [loading, setLoading] = useState(false)
   const [settingsId, setSettingsId] = useState(null)
@@ -539,13 +540,16 @@ export default function Settings() {
                         </div>
                       </div>
                       <button
+                        disabled={notifLoading}
                         onClick={async () => {
+                          setNotifLoading(true)
                           await disableNotifications()
+                          setNotifLoading(false)
                           toast.success('Notifiche disattivate')
                         }}
-                        className="px-4 py-2 bg-white border-2 border-gray-200 text-gray-600 font-bold text-sm rounded-xl hover:border-red-300 hover:text-red-600 transition"
+                        className="px-4 py-2 bg-white border-2 border-gray-200 text-gray-600 font-bold text-sm rounded-xl hover:border-red-300 hover:text-red-600 transition disabled:opacity-50"
                       >
-                        Disattiva
+                        {notifLoading ? 'Attendere…' : 'Disattiva'}
                       </button>
                     </div>
 
@@ -577,15 +581,30 @@ export default function Settings() {
                         </div>
                       </div>
                       <button
+                        disabled={notifLoading}
                         onClick={async () => {
-                          const ok = await enableNotifications()
-                          if (ok) toast.success('Notifiche attivate! 🔔')
-                          else toast.error('Impossibile attivare le notifiche. Controlla le impostazioni del browser.')
+                          setNotifLoading(true)
+                          try {
+                            const ok = await enableNotifications()
+                            if (ok) toast.success('Notifiche attivate! 🔔')
+                            else toast.error('Impossibile attivare le notifiche. Controlla le impostazioni del browser o apri la console per i dettagli.')
+                          } finally {
+                            setNotifLoading(false)
+                          }
                         }}
-                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30"
+                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        <BellRing className="w-5 h-5" />
-                        Attiva Notifiche Push
+                        {notifLoading ? (
+                          <>
+                            <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                            Attivazione…
+                          </>
+                        ) : (
+                          <>
+                            <BellRing className="w-5 h-5" />
+                            Attiva Notifiche Push
+                          </>
+                        )}
                       </button>
                     </div>
 

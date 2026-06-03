@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import OneSignal from 'react-onesignal'
+import { getOneSignalReady } from '@/lib/onesignal'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -7,6 +8,7 @@ export function useNotifications() {
   const { user } = useAuth()
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [permission, setPermission] = useState('default')
+  // null = caricamento, true = pronto
   const [isReady, setIsReady] = useState(false)
   const linkedRef = useRef(false)
 
@@ -20,81 +22,108 @@ export function useNotifications() {
         .from('settings')
         .update({ onesignal_player_id: subId })
         .eq('user_id', user.id)
+      console.log('[OneSignal] Subscription ID salvato:', subId)
     } catch (err) {
-      console.error('Errore salvataggio subscription ID:', err)
+      console.error('[OneSignal] Errore salvataggio subscription ID:', err)
     }
   }, [user?.id])
-
-  // Legge lo stato corrente dall'SDK
-  const syncState = useCallback(() => {
-    try {
-      const opted = OneSignal.User?.PushSubscription?.optedIn ?? false
-      const perm = OneSignal.Notifications?.permission ?? false
-      setIsSubscribed(opted)
-      setPermission(perm ? 'granted' : 'default')
-    } catch {
-      // SDK non ancora pronto
-    }
-  }, [])
 
   useEffect(() => {
     if (!user?.id) return
 
-    // Collega l'account OneSignal all'utente Supabase (una volta sola)
-    if (!linkedRef.current) {
-      linkedRef.current = true
-      OneSignal.login(user.id).catch(console.error)
+    let cancelled = false
+
+    async function setup() {
+      // Attende che l'SDK sia davvero pronto
+      await getOneSignalReady()
+      if (cancelled) return
+
+      // Collega l'account OneSignal all'utente Supabase (una volta sola)
+      if (!linkedRef.current) {
+        linkedRef.current = true
+        try {
+          await OneSignal.login(user.id)
+          console.log('[OneSignal] Login utente:', user.id)
+        } catch (err) {
+          console.warn('[OneSignal] login() fallito (non critico):', err)
+        }
+      }
+
+      // Legge lo stato reale dall'SDK
+      const opted = OneSignal.User?.PushSubscription?.optedIn ?? false
+      const perm   = OneSignal.Notifications?.permission ?? false
+      console.log('[OneSignal] Stato iniziale — optedIn:', opted, 'permission:', perm)
+
+      if (!cancelled) {
+        setIsSubscribed(opted)
+        setPermission(perm ? 'granted' : Notification.permission)
+        setIsReady(true)
+        if (opted) saveSubscriptionId()
+      }
+
+      // Ascolta cambiamenti di subscription
+      const handleChange = (event) => {
+        const optedIn = event.current?.optedIn ?? false
+        console.log('[OneSignal] Subscription cambiata — optedIn:', optedIn)
+        setIsSubscribed(optedIn)
+        if (optedIn) saveSubscriptionId()
+      }
+      OneSignal.User.PushSubscription.addEventListener('change', handleChange)
+
+      // Cleanup
+      return () => {
+        OneSignal.User.PushSubscription.removeEventListener('change', handleChange)
+      }
     }
 
-    // Piccolo delay per attendere che l'SDK completi l'init
-    const timer = setTimeout(() => {
-      syncState()
-      setIsReady(true)
-      saveSubscriptionId()
-    }, 600)
-
-    // Ascolta cambiamenti di subscription
-    const handleChange = (event) => {
-      const optedIn = event.current?.optedIn ?? false
-      setIsSubscribed(optedIn)
-      if (optedIn) saveSubscriptionId()
-    }
-    OneSignal.User.PushSubscription.addEventListener('change', handleChange)
+    const cleanupPromise = setup()
 
     return () => {
-      clearTimeout(timer)
-      OneSignal.User.PushSubscription.removeEventListener('change', handleChange)
+      cancelled = true
+      cleanupPromise.then(cleanup => cleanup?.())
     }
-  }, [user?.id, syncState, saveSubscriptionId])
+  }, [user?.id, saveSubscriptionId])
 
-  // Richiede il permesso al browser e attiva le notifiche
+  // Attiva le notifiche — deve essere chiamato da un click dell'utente
   const enableNotifications = useCallback(async () => {
+    console.log('[OneSignal] enableNotifications() chiamato, permission:', permission)
     try {
-      if (permission !== 'granted') {
+      await getOneSignalReady()
+
+      // Se il browser non ha ancora dato il permesso, chiediamolo
+      if (Notification.permission !== 'granted') {
+        console.log('[OneSignal] Richiedo permesso browser...')
         const granted = await OneSignal.Notifications.requestPermission()
+        console.log('[OneSignal] Permesso browser:', granted)
         if (!granted) {
           setPermission('denied')
           return false
         }
         setPermission('granted')
       }
+
+      // Opt-in alla subscription push
       await OneSignal.User.PushSubscription.optIn()
-      setIsSubscribed(true)
+      const optedIn = OneSignal.User?.PushSubscription?.optedIn ?? true
+      console.log('[OneSignal] optIn() — optedIn:', optedIn)
+      setIsSubscribed(optedIn)
       await saveSubscriptionId()
       return true
     } catch (err) {
-      console.error('Errore attivazione notifiche:', err)
+      console.error('[OneSignal] Errore enableNotifications:', err)
       return false
     }
   }, [permission, saveSubscriptionId])
 
-  // Disattiva le notifiche (senza revocare il permesso browser)
+  // Disattiva le notifiche (non revoca il permesso browser)
   const disableNotifications = useCallback(async () => {
     try {
+      await getOneSignalReady()
       await OneSignal.User.PushSubscription.optOut()
       setIsSubscribed(false)
+      console.log('[OneSignal] Notifiche disattivate')
     } catch (err) {
-      console.error('Errore disattivazione notifiche:', err)
+      console.error('[OneSignal] Errore disableNotifications:', err)
     }
   }, [])
 
