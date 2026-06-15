@@ -8,8 +8,8 @@ export function useNotifications() {
   const { user } = useAuth()
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [permission, setPermission] = useState('default')
-  // null = caricamento, true = pronto
   const [isReady, setIsReady] = useState(false)
+  const [sdkUnavailable, setSdkUnavailable] = useState(false)
   const linkedRef = useRef(false)
 
   // Salva il subscription ID su Supabase settings
@@ -34,9 +34,15 @@ export function useNotifications() {
     let cancelled = false
 
     async function setup() {
-      // Attende che l'SDK sia davvero pronto
-      await getOneSignalReady()
+      // Attende che l'SDK sia davvero pronto (con timeout di sicurezza)
+      const ready = await getOneSignalReady()
       if (cancelled) return
+
+      if (!ready) {
+        setSdkUnavailable(true)
+        setIsReady(true)
+        return
+      }
 
       // Collega l'account OneSignal all'utente Supabase (una volta sola)
       if (!linkedRef.current) {
@@ -88,7 +94,11 @@ export function useNotifications() {
   const enableNotifications = useCallback(async () => {
     console.log('[OneSignal] enableNotifications() chiamato, permission:', permission)
     try {
-      await getOneSignalReady()
+      const ready = await getOneSignalReady()
+      if (!ready) {
+        setSdkUnavailable(true)
+        return false
+      }
 
       // Se il browser non ha ancora dato il permesso, chiediamolo
       if (Notification.permission !== 'granted') {
@@ -131,6 +141,7 @@ export function useNotifications() {
     isSubscribed,
     permission,
     isReady,
+    sdkUnavailable,
     enableNotifications,
     disableNotifications,
   }

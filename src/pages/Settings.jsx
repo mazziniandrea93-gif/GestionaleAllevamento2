@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 export default function Settings() {
   const { user } = useAuth()
-  const { isSubscribed, permission, isReady, enableNotifications, disableNotifications } = useNotifications()
+  const { isSubscribed, permission, isReady, sdkUnavailable, enableNotifications, disableNotifications } = useNotifications()
   const [notifLoading, setNotifLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('profilo')
   const [loading, setLoading] = useState(false)
@@ -504,6 +504,26 @@ export default function Settings() {
                   <div className="flex items-center gap-3 p-5 bg-gray-50 rounded-2xl border-2 border-gray-100">
                     <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-t-primary-500 animate-spin" />
                     <span className="text-sm text-gray-500">Controllo stato notifiche…</span>
+                  </div>
+                ) : sdkUnavailable ? (
+                  /* SDK OneSignal non caricato */
+                  <div className="p-5 bg-amber-50 rounded-2xl border-2 border-amber-200 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <BellOff className="w-6 h-6 text-amber-500 shrink-0" />
+                      <div>
+                        <p className="font-bold text-amber-800">Servizio notifiche non disponibile</p>
+                        <p className="text-sm text-amber-700 mt-0.5">
+                          Il sistema di notifiche non è riuscito a caricarsi. Può succedere se un blocco pubblicità,
+                          un VPN o un'estensione del browser blocca lo script di notifiche.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-amber-100 rounded-xl p-4 text-sm text-amber-700 space-y-1">
+                      <p className="font-semibold">Cosa provare:</p>
+                      <p>🔌 Disattiva temporaneamente AdBlock/uBlock per questo sito</p>
+                      <p>🕵️ Esci dalla modalità di navigazione privata/incognito</p>
+                      <p>🔄 Ricarica la pagina</p>
+                    </div>
                   </div>
                 ) : permission === 'denied' ? (
                   /* Permesso revocato */

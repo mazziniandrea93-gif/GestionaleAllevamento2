@@ -30,7 +30,17 @@ export function initOneSignal() {
   return _initPromise
 }
 
-export function getOneSignalReady() {
+// Restituisce true se l'init è andato a buon fine, false se ha superato il timeout
+// (es. SDK bloccato da adblocker/rete) — non resta mai in attesa per sempre.
+export function getOneSignalReady(timeoutMs = 8000) {
   if (!_initPromise) initOneSignal()
-  return _initPromise
+
+  const timeout = new Promise(resolve => {
+    setTimeout(() => {
+      console.warn('[OneSignal] Init non completato entro', timeoutMs, 'ms — probabile blocco SDK (adblocker/rete)')
+      resolve(false)
+    }, timeoutMs)
+  })
+
+  return Promise.race([_initPromise.then(() => true), timeout])
 }
