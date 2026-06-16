@@ -1478,7 +1478,7 @@ export default function DogDetail() {
         {activeTab === 'crescita' && (
           <div className="space-y-8">
             <DogMeasurements dogId={dog.id} dogName={dog.name} />
-            <DogGrowthChart dogId={dog.id} />
+            <DogGrowthChart dogId={dog.id} dog={dog} />
           </div>
         )}
 

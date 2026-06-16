@@ -16,6 +16,17 @@ async function getCurrentUserId() {
   return user.id
 }
 
+// Aggiunge un intervallo (giorni/mesi/anni) a una data, restituendo una nuova Date.
+// Usato per calcolare la prossima scadenza dei promemoria sanitari ricorrenti.
+export function addInterval(date, unit, value) {
+  const d = new Date(date)
+  const n = parseInt(value) || 0
+  if (unit === 'giorni') d.setDate(d.getDate() + n)
+  else if (unit === 'anni') d.setFullYear(d.getFullYear() + n)
+  else d.setMonth(d.getMonth() + n) // default: mesi
+  return d
+}
+
 // Helper functions per le operazioni comuni
 export const db = {
   // DOGS
@@ -126,6 +137,17 @@ export const db = {
       .single()
 
     if (error) throw error
+
+    // Se il cane non è più attivo (deceduto/venduto/ceduto) sospende i suoi
+    // promemoria sanitari ricorrenti: niente più eventi né notifiche.
+    if ('status' in payload && payload.status && payload.status !== 'attivo') {
+      await supabase
+        .from('health_reminders')
+        .update({ active: false })
+        .eq('dog_id', id)
+        .eq('active', true)
+    }
+
     return data
   },
 
@@ -546,6 +568,71 @@ export const db = {
     return data
   },
 
+  // Media di peso/altezza per fascia d'età (in mesi), calcolata sui cani
+  // della stessa razza, escludendo il cane corrente. Serve come linea di
+  // riferimento nei grafici di crescita. Calcolo live, cachato lato client.
+  async getBreedGrowthAverages(breed, excludeDogId = null) {
+    if (!breed) return []
+
+    // Prendo i cani della stessa razza (con data di nascita) escluso il corrente
+    let dogsQuery = supabase
+      .from('dogs')
+      .select('id, birth_date')
+      .eq('breed', breed)
+      .not('birth_date', 'is', null)
+
+    if (excludeDogId) {
+      dogsQuery = dogsQuery.neq('id', excludeDogId)
+    }
+
+    const { data: dogs, error: dogsError } = await dogsQuery
+    if (dogsError) throw dogsError
+    if (!dogs || dogs.length === 0) return []
+
+    const birthById = {}
+    dogs.forEach(d => { birthById[d.id] = d.birth_date })
+    const dogIds = dogs.map(d => d.id)
+
+    const { data: measurements, error: mError } = await supabase
+      .from('dog_measurements')
+      .select('dog_id, measurement_date, weight, height')
+      .in('dog_id', dogIds)
+    if (mError) throw mError
+
+    // Raggruppo per età in mesi al momento della misurazione
+    const buckets = {}
+    for (const m of measurements || []) {
+      const birth = birthById[m.dog_id]
+      if (!birth) continue
+      const ageMonths = Math.max(0, Math.round(
+        (new Date(m.measurement_date) - new Date(birth)) / (1000 * 60 * 60 * 24 * 30.44)
+      ))
+      if (!buckets[ageMonths]) {
+        buckets[ageMonths] = { weightSum: 0, weightCount: 0, heightSum: 0, heightCount: 0 }
+      }
+      if (m.weight != null) {
+        buckets[ageMonths].weightSum += parseFloat(m.weight)
+        buckets[ageMonths].weightCount++
+      }
+      if (m.height != null) {
+        buckets[ageMonths].heightSum += parseFloat(m.height)
+        buckets[ageMonths].heightCount++
+      }
+    }
+
+    // Mostra la media di una fascia solo se calcolata su più di 2 valori:
+    // con 1-2 campioni non è statisticamente significativa.
+    const MIN_SAMPLES = 3
+    return Object.entries(buckets)
+      .map(([ageMonths, b]) => ({
+        ageMonths: Number(ageMonths),
+        avgWeight: b.weightCount >= MIN_SAMPLES ? b.weightSum / b.weightCount : null,
+        avgHeight: b.heightCount >= MIN_SAMPLES ? b.heightSum / b.heightCount : null,
+      }))
+      .filter(b => b.avgWeight != null || b.avgHeight != null)
+      .sort((a, b) => a.ageMonths - b.ageMonths)
+  },
+
   async createDogMeasurement(measurement) {
     const userId = await getCurrentUserId()
 
@@ -624,6 +711,75 @@ export const db = {
       .eq('id', id)
 
     if (error) throw error
+  },
+
+  // HEALTH REMINDERS - Promemoria sanitari ricorrenti
+  async getHealthReminders(dogId = null) {
+    let query = supabase
+      .from('health_reminders')
+      .select(`*, dog:dogs(id, name, breed, color, status)`)
+      .order('next_due_date', { ascending: true })
+
+    if (dogId) {
+      query = query.eq('dog_id', dogId)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return data
+  },
+
+  async createHealthReminder(reminder) {
+    const userId = await getCurrentUserId()
+    const { data, error } = await supabase
+      .from('health_reminders')
+      .insert([{ ...reminder, user_id: userId }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async updateHealthReminder(id, updates) {
+    const { data, error } = await supabase
+      .from('health_reminders')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteHealthReminder(id) {
+    const { error } = await supabase
+      .from('health_reminders')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // Segna la scadenza come fatta oggi e calcola la prossima in base
+  // alla ricorrenza (giorni/mesi/anni). Restituisce il record aggiornato.
+  async markHealthReminderDone(id, doneDate = null) {
+    const { data: reminder, error: fetchError } = await supabase
+      .from('health_reminders')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (fetchError) throw fetchError
+
+    const done = doneDate ? new Date(doneDate + 'T00:00:00') : new Date()
+    done.setHours(0, 0, 0, 0)
+    const next = addInterval(done, reminder.interval_unit, reminder.interval_value)
+
+    return db.updateHealthReminder(id, {
+      last_done_date: done.toISOString().split('T')[0],
+      next_due_date: next.toISOString().split('T')[0],
+    })
   },
 
   // STORAGE - Upload immagini

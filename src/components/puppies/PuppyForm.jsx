@@ -25,8 +25,15 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
     sale_date: puppy?.sale_date || '',
     deposit_amount: puppy?.deposit_amount || '',
     deposit_date: puppy?.deposit_date || '',
+    balance_paid: puppy?.balance_paid || false,
     notes: puppy?.notes || '',
   })
+
+  // Residuo da incassare: prezzo - acconto (mai negativo)
+  const remainingBalance = Math.max(
+    0,
+    (parseFloat(formData.sale_price) || 0) - (parseFloat(formData.deposit_amount) || 0)
+  )
 
   // Fetch litters per il dropdown
   const { data: litters = [] } = useQuery({
@@ -405,6 +412,33 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
                   />
                 </div>
               </div>
+
+              {/* Saldo */}
+              {(parseFloat(formData.sale_price) || 0) > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-2xl bg-gray-50 border-2 border-gray-100">
+                  <div className="text-sm">
+                    <span className="text-gray-600 font-semibold">Saldo residuo: </span>
+                    <span className={`font-black ${remainingBalance > 0 && !formData.balance_paid ? 'text-orange-600' : 'text-green-600'}`}>
+                      €{remainingBalance.toFixed(2)}
+                    </span>
+                    {(parseFloat(formData.deposit_amount) || 0) > 0 && (
+                      <span className="text-xs text-gray-400 ml-2">
+                        (prezzo €{(parseFloat(formData.sale_price) || 0).toFixed(2)} − acconto €{(parseFloat(formData.deposit_amount) || 0).toFixed(2)})
+                      </span>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      name="balance_paid"
+                      checked={formData.balance_paid}
+                      onChange={(e) => setFormData(prev => ({ ...prev, balance_paid: e.target.checked }))}
+                      className="w-5 h-5 rounded text-primary-500 focus:ring-primary-200"
+                    />
+                    <span className="text-sm font-bold text-gray-700">Saldo pagato</span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
 

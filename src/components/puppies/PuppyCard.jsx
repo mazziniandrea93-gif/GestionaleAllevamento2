@@ -138,6 +138,24 @@ export default function PuppyCard({ puppy, onEdit, onDelete }) {
             </div>
           )}
 
+          {/* Saldo */}
+          {showBuyer && puppy.sale_price > 0 && (() => {
+            const remaining = Math.max(0, Number(puppy.sale_price) - Number(puppy.deposit_amount || 0))
+            const settled = puppy.balance_paid || remaining === 0
+            return (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 font-semibold">Saldo:</span>
+                {settled ? (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-200 text-green-800">Saldato</span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-200 text-orange-800">
+                    Residuo €{remaining.toFixed(2)}
+                  </span>
+                )}
+              </div>
+            )
+          })()}
+
           {/* Acquirente */}
           {showBuyer && puppy.buyer_name && (
             <div className="flex items-center justify-between gap-3 pt-2 mt-2 border-t border-black/10">

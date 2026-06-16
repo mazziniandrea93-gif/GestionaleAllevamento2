@@ -7,3 +7,8 @@ dist
 .claude/
 .idea/
 supabase/.temp/
+
+.vercel
+
+# Documentazione interna di pianificazione (non versionata)
+ROADMAP_FEATURES.md

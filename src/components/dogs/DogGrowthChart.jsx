@@ -5,11 +5,42 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { TrendingUp } from 'lucide-react'
 
-export default function DogGrowthChart({ dogId }) {
+// Interpola linearmente il valore medio a una data età (in mesi) tra le
+// fasce note. Ritorna null se non ci sono dati di riferimento utilizzabili.
+function avgAtAge(buckets, ageMonths, key) {
+  const pts = buckets.filter(b => b[key] != null)
+  if (pts.length === 0) return null
+  if (pts.length === 1) return pts[0][key]
+
+  // Prima/dopo i limiti: usa il valore dell'estremo più vicino
+  if (ageMonths <= pts[0].ageMonths) return pts[0][key]
+  if (ageMonths >= pts[pts.length - 1].ageMonths) return pts[pts.length - 1][key]
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const lo = pts[i]
+    const hi = pts[i + 1]
+    if (ageMonths >= lo.ageMonths && ageMonths <= hi.ageMonths) {
+      const span = hi.ageMonths - lo.ageMonths
+      if (span === 0) return lo[key]
+      const t = (ageMonths - lo.ageMonths) / span
+      return lo[key] + t * (hi[key] - lo[key])
+    }
+  }
+  return null
+}
+
+export default function DogGrowthChart({ dogId, dog }) {
   const { data: measurements = [], isLoading } = useQuery({
     queryKey: ['dog-measurements', dogId],
     queryFn: () => db.getDogMeasurements(dogId),
     enabled: !!dogId,
+  })
+
+  const { data: breedAverages = [] } = useQuery({
+    queryKey: ['breed-growth-averages', dog?.breed, dogId],
+    queryFn: () => db.getBreedGrowthAverages(dog.breed, dogId),
+    enabled: !!dog?.breed,
+    staleTime: 1000 * 60 * 60, // 1h: i dati di razza cambiano di rado
   })
 
   if (isLoading) {
@@ -32,17 +63,33 @@ export default function DogGrowthChart({ dogId }) {
     )
   }
 
-  // Prepara i dati per il grafico
-  const chartData = measurements.map(m => ({
-    date: format(new Date(m.measurement_date), 'dd/MM/yy'),
-    fullDate: format(new Date(m.measurement_date), 'dd MMMM yyyy', { locale: it }),
-    weight: m.weight ? parseFloat(m.weight) : null,
-    height: m.height ? parseFloat(m.height) : null,
-  }))
+  const birthDate = dog?.birth_date ? new Date(dog.birth_date) : null
+  const hasAverages = breedAverages.length > 0 && !!birthDate
+
+  // Prepara i dati per il grafico. Se disponibile, aggiunge la media di razza
+  // calcolata all'età del cane al momento di ciascuna misurazione.
+  const chartData = measurements.map(m => {
+    const point = {
+      date: format(new Date(m.measurement_date), 'dd/MM/yy'),
+      fullDate: format(new Date(m.measurement_date), 'dd MMMM yyyy', { locale: it }),
+      weight: m.weight ? parseFloat(m.weight) : null,
+      height: m.height ? parseFloat(m.height) : null,
+    }
+    if (hasAverages) {
+      const ageMonths = Math.max(0, Math.round(
+        (new Date(m.measurement_date) - birthDate) / (1000 * 60 * 60 * 24 * 30.44)
+      ))
+      point.avgWeight = avgAtAge(breedAverages, ageMonths, 'avgWeight')
+      point.avgHeight = avgAtAge(breedAverages, ageMonths, 'avgHeight')
+    }
+    return point
+  })
 
   // Verifica se ci sono dati per peso e altezza
   const hasWeight = measurements.some(m => m.weight)
   const hasHeight = measurements.some(m => m.height)
+  const hasAvgWeight = hasAverages && chartData.some(d => d.avgWeight != null)
+  const hasAvgHeight = hasAverages && chartData.some(d => d.avgHeight != null)
 
   return (
     <div className="space-y-6">
@@ -84,6 +131,7 @@ export default function DogGrowthChart({ dogId }) {
                 }}
                 formatter={(value, name) => {
                   if (name === 'weight') return [`${value} kg`, 'Peso']
+                  if (name === 'avgWeight') return [`${Number(value).toFixed(1)} kg`, `Media ${dog?.breed || 'razza'}`]
                   return [value, name]
                 }}
               />
@@ -99,6 +147,18 @@ export default function DogGrowthChart({ dogId }) {
                 activeDot={{ r: 7 }}
                 name="Peso"
               />
+              {hasAvgWeight && (
+                <Line
+                  type="monotone"
+                  dataKey="avgWeight"
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  activeDot={false}
+                  name={`Media ${dog?.breed || 'razza'}`}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -137,6 +197,7 @@ export default function DogGrowthChart({ dogId }) {
                 }}
                 formatter={(value, name) => {
                   if (name === 'height') return [`${value} cm`, 'Altezza']
+                  if (name === 'avgHeight') return [`${Number(value).toFixed(1)} cm`, `Media ${dog?.breed || 'razza'}`]
                   return [value, name]
                 }}
               />
@@ -152,6 +213,18 @@ export default function DogGrowthChart({ dogId }) {
                 activeDot={{ r: 7 }}
                 name="Altezza"
               />
+              {hasAvgHeight && (
+                <Line
+                  type="monotone"
+                  dataKey="avgHeight"
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  activeDot={false}
+                  name={`Media ${dog?.breed || 'razza'}`}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -199,6 +272,8 @@ export default function DogGrowthChart({ dogId }) {
                 formatter={(value, name) => {
                   if (name === 'weight') return [`${value} kg`, 'Peso']
                   if (name === 'height') return [`${value} cm`, 'Altezza']
+                  if (name === 'avgWeight') return [`${Number(value).toFixed(1)} kg`, 'Media peso']
+                  if (name === 'avgHeight') return [`${Number(value).toFixed(1)} cm`, 'Media altezza']
                   return [value, name]
                 }}
               />
@@ -225,6 +300,32 @@ export default function DogGrowthChart({ dogId }) {
                 activeDot={{ r: 7 }}
                 name="Altezza"
               />
+              {hasAvgWeight && (
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="avgWeight"
+                  stroke="#60a5fa"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  activeDot={false}
+                  name="Media peso"
+                />
+              )}
+              {hasAvgHeight && (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="avgHeight"
+                  stroke="#c084fc"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  activeDot={false}
+                  name="Media altezza"
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>

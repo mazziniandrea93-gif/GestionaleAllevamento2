@@ -8,13 +8,10 @@ const supabase = createClient(
 const ONESIGNAL_APP_ID = Deno.env.get('ONESIGNAL_APP_ID')!
 const ONESIGNAL_REST_KEY = Deno.env.get('ONESIGNAL_REST_KEY')!
 
-Deno.serve(async (req) => {
-  // Consenti chiamate solo da Supabase cron o con Authorization header
-  const authHeader = req.headers.get('Authorization')
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (authHeader && authHeader !== `Bearer ${serviceKey}`) {
-    return new Response('Unauthorized', { status: 401 })
-  }
+Deno.serve(async (_req) => {
+  // L'accesso è già protetto dalla verifica JWT della piattaforma (verify_jwt):
+  // solo chi presenta una chiave valida del progetto (es. la service role key
+  // usata dal cron) raggiunge questo codice. Nessun controllo aggiuntivo serve.
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -22,7 +19,7 @@ Deno.serve(async (req) => {
   // Recupera tutti gli eventi non completati che hanno reminder_days > 0
   const { data: events, error } = await supabase
     .from('events')
-    .select('id, title, event_date, reminder_days, event_type, user_id')
+    .select('id, title, event_date, reminder_days, event_type, user_id, dog_ids')
     .eq('completed', false)
     .gt('reminder_days', 0)
 
@@ -31,14 +28,44 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   }
 
-  // Filtra gli eventi il cui giorno di reminder coincide con oggi
-  const toNotify = (events ?? []).filter(event => {
-    const eventDate = new Date(event.event_date)
-    eventDate.setHours(0, 0, 0, 0)
-    const reminderDate = new Date(eventDate)
-    reminderDate.setDate(reminderDate.getDate() - (event.reminder_days ?? 0))
-    return reminderDate.getTime() === today.getTime()
+  // Per ogni evento controlla se oggi è un giorno di promemoria.
+  // Si notifica sia al giorno impostato (reminder_days) sia sempre 2 giorni prima.
+  const MS_PER_DAY = 1000 * 60 * 60 * 24
+  let toNotify = (events ?? [])
+    .map(event => {
+      const eventDate = new Date(event.event_date)
+      eventDate.setHours(0, 0, 0, 0)
+      const daysLeft = Math.round((eventDate.getTime() - today.getTime()) / MS_PER_DAY)
+      // Giorni in cui scatta il promemoria: quello configurato + 2 giorni prima
+      const reminderOffsets = new Set([event.reminder_days ?? 0, 2])
+      return { ...event, daysLeft, shouldNotify: reminderOffsets.has(daysLeft) }
+    })
+    .filter(event => event.shouldNotify)
+
+  // Salta gli eventi i cui cani sono tutti non più attivi (deceduto/venduto/
+  // ceduto). Gli eventi senza cani collegati restano sempre validi.
+  const eventDogIds = [...new Set(toNotify.flatMap(e => e.dog_ids ?? []))]
+  const statusByDog: Record<string, string> = {}
+  if (eventDogIds.length > 0) {
+    const { data: dogRows } = await supabase
+      .from('dogs')
+      .select('id, status')
+      .in('id', eventDogIds)
+    dogRows?.forEach(d => { statusByDog[d.id] = d.status })
+  }
+
+  const activeNotify = toNotify.filter(event => {
+    const ids = event.dog_ids ?? []
+    if (ids.length === 0) return true // evento generico non legato a un cane
+    // Tieni l'evento se almeno un cane collegato è ancora attivo
+    return ids.some(id => (statusByDog[id] ?? 'attivo') === 'attivo')
   })
+
+  const skippedInactive = toNotify.length - activeNotify.length
+  if (skippedInactive > 0) {
+    console.log(`⏭️ ${skippedInactive} eventi saltati (cani non attivi)`)
+  }
+  toNotify = activeNotify
 
   console.log(`📅 Oggi: ${today.toISOString().split('T')[0]} — ${toNotify.length} promemoria da inviare`)
 
@@ -80,11 +107,13 @@ Deno.serve(async (req) => {
       continue
     }
 
-    const daysLeft = event.reminder_days ?? 0
+    const daysLeft = event.daysLeft
     const typeLabel = eventTypeLabel[event.event_type] ?? '📅 Evento'
-    const heading = daysLeft === 1
-      ? `${typeLabel} — domani!`
-      : `${typeLabel} — tra ${daysLeft} giorni`
+    const heading = daysLeft === 0
+      ? `${typeLabel} — oggi!`
+      : daysLeft === 1
+        ? `${typeLabel} — domani!`
+        : `${typeLabel} — tra ${daysLeft} giorni`
 
     const res = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',

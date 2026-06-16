@@ -1,16 +1,22 @@
 import { useState } from 'react'
-import { Heart as HeartIcon, Plus, Syringe, Pill, Activity } from 'lucide-react'
+import { Heart as HeartIcon, Plus, Syringe, Pill, Activity, Bell } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import HealthRecordForm from '@/components/health/HealthRecordForm'
 import HealthRecordCard from '@/components/health/HealthRecordCard'
+import HealthReminderForm from '@/components/health/HealthReminderForm'
+import HealthReminderCard from '@/components/health/HealthReminderCard'
 
 export default function Health() {
   const [activeTab, setActiveTab] = useState('tutti')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
+  const [isReminderFormOpen, setIsReminderFormOpen] = useState(false)
+  const [selectedReminder, setSelectedReminder] = useState(null)
   const queryClient = useQueryClient()
+
+  const isReminderTab = activeTab === 'scadenze'
 
   // Fetch dogs per ottenere i record sanitari
   const { data: dogs = [] } = useQuery({
@@ -30,6 +36,12 @@ export default function Health() {
       return records.sort((a, b) => new Date(b.record_date) - new Date(a.record_date))
     },
     enabled: dogs.length > 0,
+  })
+
+  // Fetch promemoria sanitari ricorrenti
+  const { data: reminders = [], isLoading: isLoadingReminders } = useQuery({
+    queryKey: ['health-reminders'],
+    queryFn: () => db.getHealthReminders(),
   })
 
   // Filter records by type
@@ -90,6 +102,50 @@ export default function Health() {
     }
   }
 
+  // --- Promemoria ricorrenti ---
+  const handleReminderFormClose = () => {
+    setIsReminderFormOpen(false)
+    setSelectedReminder(null)
+  }
+
+  const handleReminderFormSuccess = () => {
+    handleReminderFormClose()
+    queryClient.invalidateQueries(['health-reminders'])
+  }
+
+  const handleReminderEdit = (reminder) => {
+    setSelectedReminder(reminder)
+    setIsReminderFormOpen(true)
+  }
+
+  const handleReminderDelete = async (reminder) => {
+    if (!confirm(`Eliminare il promemoria?\n\n"${reminder.description}"`)) return
+    try {
+      await db.deleteHealthReminder(reminder.id)
+      toast.success('Promemoria eliminato')
+      queryClient.invalidateQueries(['health-reminders'])
+    } catch (error) {
+      console.error('Error deleting reminder:', error)
+      toast.error('Errore durante l\'eliminazione')
+    }
+  }
+
+  const handleReminderMarkDone = async (reminder) => {
+    try {
+      await db.markHealthReminderDone(reminder.id)
+      toast.success('Fatto! Prossima scadenza aggiornata')
+      queryClient.invalidateQueries(['health-reminders'])
+    } catch (error) {
+      console.error('Error marking reminder done:', error)
+      toast.error('Errore durante l\'aggiornamento')
+    }
+  }
+
+  const handleAddClick = () => {
+    if (isReminderTab) setIsReminderFormOpen(true)
+    else setIsFormOpen(true)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -99,11 +155,11 @@ export default function Health() {
           <p className="text-gray-500 mt-1">Monitora la salute dei tuoi cani</p>
         </div>
         <button
-          onClick={() => setIsFormOpen(true)}
+          onClick={handleAddClick}
           className="flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-2xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30"
         >
           <Plus className="w-5 h-5" />
-          Nuovo Evento
+          {isReminderTab ? 'Nuovo Promemoria' : 'Nuovo Evento'}
         </button>
       </div>
 
@@ -114,6 +170,7 @@ export default function Health() {
           { id: 'vaccini', label: 'Vaccini', icon: Syringe },
           { id: 'visite', label: 'Visite', icon: Activity },
           { id: 'terapie', label: 'Terapie', icon: Pill },
+          { id: 'scadenze', label: 'Scadenze', icon: Bell },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -130,6 +187,8 @@ export default function Health() {
         ))}
       </div>
 
+      {!isReminderTab && (
+       <>
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-blue-400 to-blue-500 p-8 rounded-[40px] shadow-lg text-white relative overflow-hidden">
@@ -204,6 +263,45 @@ export default function Health() {
           </p>
         </div>
       )}
+       </>
+      )}
+
+      {/* Scadenze / promemoria ricorrenti */}
+      {isReminderTab && (
+        <>
+          {isLoadingReminders && (
+            <div className="flex justify-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+            </div>
+          )}
+
+          {!isLoadingReminders && reminders.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {reminders.map((reminder) => (
+                <HealthReminderCard
+                  key={reminder.id}
+                  reminder={reminder}
+                  onEdit={handleReminderEdit}
+                  onDelete={handleReminderDelete}
+                  onMarkDone={handleReminderMarkDone}
+                />
+              ))}
+            </div>
+          )}
+
+          {!isLoadingReminders && reminders.length === 0 && (
+            <div className="text-center py-20">
+              <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Bell className="w-10 h-10 text-primary-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-700 mb-2">Nessuna scadenza ricorrente</h3>
+              <p className="text-gray-500">
+                Crea promemoria per vaccini, antiparassitari e sverminazioni: riceverai una notifica automatica all'avvicinarsi della scadenza.
+              </p>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Form Modal */}
       {isFormOpen && (
@@ -211,6 +309,15 @@ export default function Health() {
           record={selectedRecord}
           onClose={handleFormClose}
           onSuccess={handleFormSuccess}
+        />
+      )}
+
+      {/* Form Modal Promemoria */}
+      {isReminderFormOpen && (
+        <HealthReminderForm
+          reminder={selectedReminder}
+          onClose={handleReminderFormClose}
+          onSuccess={handleReminderFormSuccess}
         />
       )}
     </div>
