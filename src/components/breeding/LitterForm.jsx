@@ -10,7 +10,10 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
     males: litter?.males || '',
     females: litter?.females || '',
     deceased_puppies: litter?.deceased_puppies || '0',
-    notes: litter?.notes || ''
+    notes: litter?.notes || '',
+    enci_denuncia_sent: litter?.enci_denuncia_sent || false,
+    enci_denuncia_date: litter?.enci_denuncia_date || '',
+    roi_litter_number: litter?.roi_litter_number || '',
   })
   const [matings, setMatings] = useState([])
   const [loading, setLoading] = useState(false)
@@ -63,7 +66,10 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
         males: malesVal,
         females: femalesVal,
         deceased_puppies: deceasedPuppies,
-        alive_puppies: Math.max(0, totalPuppies - deceasedPuppies)
+        alive_puppies: Math.max(0, totalPuppies - deceasedPuppies),
+        enci_denuncia_sent: formData.enci_denuncia_sent,
+        enci_denuncia_date: formData.enci_denuncia_date || null,
+        roi_litter_number: formData.roi_litter_number?.trim() || null,
       }
 
       if (litter) {
@@ -279,6 +285,43 @@ export default function LitterForm({ litter, onClose, onSuccess }) {
               <div className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl bg-gray-50 flex items-center">
                 <span className="text-2xl font-black text-primary-600">{alivePuppies}</span>
                 <span className="ml-2 text-sm text-gray-500">(calcolato automaticamente)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Registro ENCI */}
+          <div className="space-y-4 p-4 rounded-2xl bg-gray-50 border-2 border-gray-100">
+            <h4 className="font-bold text-gray-900">Registro ENCI</h4>
+
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formData.enci_denuncia_sent}
+                onChange={(e) => setFormData({ ...formData, enci_denuncia_sent: e.target.checked })}
+                className="w-5 h-5 rounded text-primary-500 focus:ring-primary-200"
+              />
+              <span className="text-sm font-bold text-gray-700">Denuncia di cucciolata inviata all'ENCI</span>
+            </label>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Data denuncia</label>
+                <input
+                  type="date"
+                  value={formData.enci_denuncia_date}
+                  onChange={(e) => setFormData({ ...formData, enci_denuncia_date: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-primary-500 focus:outline-none transition"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">N° registrazione cucciolata</label>
+                <input
+                  type="text"
+                  value={formData.roi_litter_number}
+                  onChange={(e) => setFormData({ ...formData, roi_litter_number: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-primary-500 focus:outline-none transition"
+                  placeholder="Es: ROI 25/..."
+                />
               </div>
             </div>
           </div>

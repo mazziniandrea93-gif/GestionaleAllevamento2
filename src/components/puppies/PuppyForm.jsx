@@ -18,6 +18,7 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
     birth_weight: puppy?.birth_weight || '',
     status: puppy?.status || 'disponibile',
     microchip: puppy?.microchip || '',
+    roi_loi_number: puppy?.roi_loi_number || '',
     sale_price: puppy?.sale_price || '',
     buyer_name: puppy?.buyer_name || '',
     buyer_email: buyerEmailRaw?.trim() || '',
@@ -62,6 +63,7 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
         sale_date: formData.sale_date || null,
         deposit_date: formData.deposit_date || null,
         microchip: formData.microchip || null,
+        roi_loi_number: formData.roi_loi_number?.trim() || null,
       }
 
       let savedPuppy
@@ -301,6 +303,20 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
                   placeholder="15 cifre"
                   maxLength="15"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  N° iscrizione ROI/LOI
+                </label>
+                <input
+                  type="text"
+                  name="roi_loi_number"
+                  value={formData.roi_loi_number}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                  placeholder="Es: ROI 25/..."
                 />
               </div>
             </div>

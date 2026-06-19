@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
+import { fertileWindow } from '@/lib/heat'
 import {
   ArrowLeft,
   Edit,
@@ -186,6 +187,61 @@ function DogHistory({ dogEvents, heatCycles, onNewEvent }) {
   )
 }
 
+function DogBalanceTab({ dogId }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['dog-financials', dogId],
+    queryFn: () => db.getDogFinancials(dogId),
+    enabled: !!dogId,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500"></div>
+      </div>
+    )
+  }
+
+  const total = data?.total || 0
+  const byCategory = data?.byCategory || {}
+  const categories = Object.entries(byCategory).sort((a, b) => b[1] - a[1])
+  const fmt = (n) => `€${Number(n).toFixed(2)}`
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border-2 border-gray-100 bg-gray-50 p-6">
+        <p className="text-xs font-bold text-gray-400 uppercase mb-1">Costi totali sostenuti</p>
+        <p className="text-4xl font-black text-red-500">{fmt(total)}</p>
+        <p className="text-sm text-gray-500 mt-1">{data?.count || 0} spese registrate</p>
+      </div>
+
+      {categories.length > 0 ? (
+        <div className="space-y-2">
+          <h3 className="font-black text-gray-900">Costi per categoria</h3>
+          {categories.map(([cat, amount]) => {
+            const pct = total > 0 ? (amount / total) * 100 : 0
+            return (
+              <div key={cat} className="bg-white border border-gray-100 rounded-xl p-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm font-bold text-gray-700 capitalize">{cat}</span>
+                  <span className="text-sm font-bold text-gray-900">{fmt(amount)}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-primary-400 rounded-full" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-gray-500 text-sm">
+          Nessuna spesa collegata a questo cane. Associa un cane alle spese in Finanze per vedere il bilancio.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
   const queryClient = useQueryClient()
 
@@ -231,6 +287,17 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
   }
 
   const suggestedDateStr = autoNextDate ? autoNextDate.toISOString().split('T')[0] : ''
+
+  // Prossimo calore stimato di riferimento per la finestra fertile:
+  // il primo evento "calore stimato" futuro a calendario, altrimenti la
+  // stima automatica calcolata sugli intercicli.
+  const today0 = new Date(); today0.setHours(0, 0, 0, 0)
+  const upcomingHeatEvent = [...heatEvents]
+    .map(ev => new Date(ev.event_date.split('T')[0] + 'T00:00:00'))
+    .filter(d => d >= today0)
+    .sort((a, b) => a - b)[0]
+  const nextHeatDate = upcomingHeatEvent || (autoNextDate && autoNextDate >= today0 ? autoNextDate : null)
+  const fertile = fertileWindow(nextHeatDate)
 
   function invalidate() {
     refetchHeatEvents()
@@ -488,6 +555,37 @@ function DogHeatTab({ heatCycles, dogId, dogName, onAdded }) {
           </div>
         )}
       </div>
+
+      {/* ── FINESTRA FERTILE STIMATA ── */}
+      {fertile && (
+        <div className="rounded-2xl border-2 border-rose-200 bg-rose-50 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Heart className="w-5 h-5 text-rose-500" />
+            <h3 className="font-black text-rose-700">Finestra fertile stimata</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-3">
+            Sul prossimo calore stimato del{' '}
+            <span className="font-bold text-gray-800">{format(nextHeatDate, 'dd MMMM yyyy', { locale: it })}</span>:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl p-3 border border-rose-100">
+              <p className="text-xs font-bold text-rose-400 uppercase mb-1">Periodo fertile</p>
+              <p className="font-bold text-gray-800">
+                {format(fertile.start, 'dd MMM', { locale: it })} – {format(fertile.end, 'dd MMM yyyy', { locale: it })}
+              </p>
+            </div>
+            <div className="bg-white rounded-xl p-3 border border-rose-100">
+              <p className="text-xs font-bold text-rose-400 uppercase mb-1">Giorni ottimali monta</p>
+              <p className="font-bold text-rose-600">
+                {format(fertile.optimalStart, 'dd MMM', { locale: it })} – {format(fertile.optimalEnd, 'dd MMM yyyy', { locale: it })}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            Stima indicativa (9°–15° giorno dal calore, ottimale 11°–13°). Per la copertura ideale è consigliato il dosaggio del progesterone.
+          </p>
+        </div>
+      )}
 
       {/* ── STATISTICHE ── */}
       {heatCycles.length > 0 && (
@@ -1223,6 +1321,7 @@ export default function DogDetail() {
     ...(isFemale ? [{ id: 'calori', label: 'Calori' }] : []),
     { id: 'albero', label: 'Albero' },
     { id: 'giudici', label: 'Giudici' },
+    { id: 'bilancio', label: 'Bilancio' },
     { id: 'storia', label: 'Storia' },
     { id: 'documenti', label: 'Documenti' },
   ]
@@ -1611,6 +1710,10 @@ export default function DogDetail() {
 
         {activeTab === 'giudici' && (
           <DogJudgesTab dogId={dog.id} />
+        )}
+
+        {activeTab === 'bilancio' && (
+          <DogBalanceTab dogId={dog.id} />
         )}
 
         {activeTab === 'storia' && (

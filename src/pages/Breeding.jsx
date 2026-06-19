@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Heart, Plus, Search } from 'lucide-react'
+import { Heart, Plus, Search, Dna } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
 import LitterForm from '@/components/breeding/LitterForm'
 import LitterCard from '@/components/breeding/LitterCard'
 import MatingForm from '@/components/breeding/MatingForm'
 import MatingCard from '@/components/breeding/MatingCard'
+import MatingPlanner from '@/components/breeding/MatingPlanner'
 
 export default function Breeding() {
   const [activeTab, setActiveTab] = useState('cucciolate')
@@ -13,6 +14,7 @@ export default function Breeding() {
   const [matingSubTab, setMatingSubTab] = useState('in_attesa')
   const [showLitterForm, setShowLitterForm] = useState(false)
   const [showMatingForm, setShowMatingForm] = useState(false)
+  const [showPlanner, setShowPlanner] = useState(false)
   const [selectedLitter, setSelectedLitter] = useState(null)
   const [selectedMating, setSelectedMating] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -41,6 +43,23 @@ export default function Breeding() {
     queryFn: () => db.getMatings(),
     ...STALE,
   })
+
+  // Entrate, per calcolare i ricavi per cucciolata (income.puppy_id → puppy → litter)
+  const { data: income = [] } = useQuery({
+    queryKey: ['income'],
+    queryFn: () => db.getIncome(),
+    ...STALE,
+  })
+
+  const revenueByLitter = {}
+  {
+    const litterByPuppy = {}
+    allPuppies.forEach(p => { litterByPuppy[p.id] = p.litter_id })
+    income.forEach(i => {
+      const litterId = litterByPuppy[i.puppy_id]
+      if (litterId) revenueByLitter[litterId] = (revenueByLitter[litterId] || 0) + Number(i.amount || 0)
+    })
+  }
 
   const isLoading = littersLoading || puppiesLoading || matingsLoading
 
@@ -151,13 +170,23 @@ export default function Breeding() {
           <h2 className="text-3xl font-black text-dark-900">Riproduzione</h2>
           <p className="text-gray-500 mt-1">Gestisci accoppiamenti e cucciolate</p>
         </div>
-        <button
-          onClick={() => activeTab === 'cucciolate' ? setShowLitterForm(true) : setShowMatingForm(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-2xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30"
-        >
-          <Plus className="w-5 h-5" />
-          {activeTab === 'cucciolate' ? 'Nuova Cucciolata' : 'Nuovo Accoppiamento'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowPlanner(true)}
+            className="flex items-center gap-2 px-5 py-3 bg-white text-primary-600 border-2 border-primary-200 rounded-2xl font-bold hover:bg-primary-50 transition"
+            title="Stima il coefficiente di consanguineità di un accoppiamento"
+          >
+            <Dna className="w-5 h-5" />
+            Simula (COI)
+          </button>
+          <button
+            onClick={() => activeTab === 'cucciolate' ? setShowLitterForm(true) : setShowMatingForm(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-2xl font-bold hover:bg-primary-600 transition shadow-lg shadow-primary-500/30"
+          >
+            <Plus className="w-5 h-5" />
+            {activeTab === 'cucciolate' ? 'Nuova Cucciolata' : 'Nuovo Accoppiamento'}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -273,6 +302,8 @@ export default function Breeding() {
                 <LitterCard
                   key={litter.id}
                   litter={litter}
+                  puppies={allPuppies.filter(p => p.litter_id === litter.id)}
+                  revenue={revenueByLitter[litter.id] || 0}
                   onEdit={handleEditLitter}
                   onDelete={handleDeleteLitter}
                 />
@@ -343,6 +374,10 @@ export default function Breeding() {
           onClose={handleCloseMatingForm}
           onSuccess={handleMatingSuccess}
         />
+      )}
+
+      {showPlanner && (
+        <MatingPlanner onClose={() => setShowPlanner(false)} />
       )}
     </div>
   )

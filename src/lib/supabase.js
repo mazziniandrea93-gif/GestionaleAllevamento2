@@ -713,6 +713,50 @@ export const db = {
     if (error) throw error
   },
 
+  // FINANCIALS - Bilancio per cane / cucciolata
+  async getDogFinancials(dogId) {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('amount, category, expense_date')
+      .eq('dog_id', dogId)
+    if (error) throw error
+
+    let total = 0
+    const byCategory = {}
+    for (const e of data) {
+      const amt = parseFloat(e.amount || 0)
+      total += amt
+      byCategory[e.category || 'altro'] = (byCategory[e.category || 'altro'] || 0) + amt
+    }
+    return { total, byCategory, count: data.length }
+  },
+
+  // Ricavi di una cucciolata: somma delle entrate collegate ai suoi cuccioli
+  // (income.puppy_id). I costi non sono collegabili alla cucciolata (le
+  // spese hanno dog_id, non litter_id), quindi qui si calcolano i ricavi.
+  async getLitterFinancials(litterId) {
+    const { data: pups, error: pErr } = await supabase
+      .from('puppies')
+      .select('id, status')
+      .eq('litter_id', litterId)
+    if (pErr) throw pErr
+
+    const puppyIds = pups.map(p => p.id)
+    let income = []
+    if (puppyIds.length > 0) {
+      const { data, error } = await supabase
+        .from('income')
+        .select('amount, puppy_id')
+        .in('puppy_id', puppyIds)
+      if (error) throw error
+      income = data
+    }
+
+    const totalIncome = income.reduce((s, i) => s + parseFloat(i.amount || 0), 0)
+    const soldCount = pups.filter(p => p.status === 'venduto').length
+    return { totalIncome, soldCount, puppyCount: pups.length }
+  },
+
   // HEALTH REMINDERS - Promemoria sanitari ricorrenti
   async getHealthReminders(dogId = null) {
     let query = supabase

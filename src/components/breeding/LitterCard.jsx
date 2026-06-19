@@ -1,8 +1,20 @@
-import { Calendar, Edit, Trash2 } from 'lucide-react'
+import { Calendar, Edit, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react'
 
-export default function LitterCard({ litter, onEdit, onDelete }) {
+export default function LitterCard({ litter, puppies = [], revenue = 0, onEdit, onDelete }) {
   const birthDate = new Date(litter.birth_date)
   const ageInDays = Math.floor((new Date() - birthDate) / (1000 * 60 * 60 * 24))
+
+  // Compliance ENCI: valutata sui cuccioli non deceduti
+  const livePuppies = puppies.filter(p => p.status !== 'deceduto')
+  const missingMicrochip = livePuppies.filter(p => !p.microchip).length
+  const missingRoi = livePuppies.filter(p => !p.roi_loi_number).length
+  const denunciaSent = !!litter.enci_denuncia_sent
+  const enciComplete =
+    denunciaSent && livePuppies.length > 0 && missingMicrochip === 0 && missingRoi === 0
+  const missing = []
+  if (!denunciaSent) missing.push('denuncia non inviata')
+  if (missingMicrochip > 0) missing.push(`${missingMicrochip} senza microchip`)
+  if (missingRoi > 0) missing.push(`${missingRoi} senza ROI/LOI`)
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-sm border-2 border-gray-100 hover:border-primary-200 transition group">
@@ -56,6 +68,37 @@ export default function LitterCard({ litter, onEdit, onDelete }) {
           <div className="text-2xl font-black text-gray-500">{litter.deceased_puppies || 0}</div>
           <div className="text-xs font-bold text-gray-400 mt-1">Deceduti</div>
         </div>
+      </div>
+
+      {/* Compliance ENCI */}
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        {enciComplete ? (
+          <div className="flex items-center gap-2 text-sm font-bold text-green-600">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>Registro ENCI completo</span>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2 text-sm font-bold text-amber-600">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <span>Registro ENCI incompleto</span>
+              {missing.length > 0 && (
+                <span className="block text-xs font-semibold text-amber-500 mt-0.5">
+                  {missing.join(' · ')}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        {litter.roi_litter_number && (
+          <p className="text-xs text-gray-400 mt-1">N° cucciolata: {litter.roi_litter_number}</p>
+        )}
+        {revenue > 0 && (
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm text-gray-600 font-semibold">Ricavi cucciolata:</span>
+            <span className="text-sm font-black text-green-600">€{revenue.toFixed(2)}</span>
+          </div>
+        )}
       </div>
 
       {litter.notes && (
