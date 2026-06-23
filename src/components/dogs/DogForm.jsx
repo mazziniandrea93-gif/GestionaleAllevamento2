@@ -245,6 +245,12 @@ export default function DogForm({ dog, defaultGender, onClose, onSuccess }) {
     try {
       let dataToSave = { ...formData }
 
+      if (dog?.id && (dataToSave.mother_id === dog.id || dataToSave.father_id === dog.id)) {
+        toast.error('Un cane non può essere genitore di se stesso')
+        setLoading(false)
+        return
+      }
+
       if (photoFile) {
         const url = await db.uploadImage(photoFile, 'dogs-photos', 'dogs')
         dataToSave.photo_url = url

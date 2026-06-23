@@ -70,21 +70,67 @@ export const db = {
     return data
   },
 
+  // Costruisce il cane con la genealogia annidata (mother/father) fino a 3
+  // generazioni di antenati: Soggetto → Genitori → Nonni → Bisnonni.
+  // Non usa l'embedding PostgREST via foreign key (i vincoli
+  // dogs_mother_id_fkey/dogs_father_id_fkey non sono garantiti in DB): risale
+  // i genitori con query esplicite, una per livello (in batch).
   async getDogWithAncestors(id) {
-    const lvl3 = `id, name, nickname, breed, gender, color, birth_date, status`
-    const lvl2 = `id, name, nickname, breed, gender, color, birth_date, status,
-      mother:dogs!dogs_mother_id_fkey(${lvl3}),
-      father:dogs!dogs_father_id_fkey(${lvl3})`
-    const lvl1 = `id, name, nickname, breed, gender, color, birth_date, status,
-      mother:dogs!dogs_mother_id_fkey(${lvl2}),
-      father:dogs!dogs_father_id_fkey(${lvl2})`
-    const { data, error } = await supabase
+    const FIELDS = 'id, name, nickname, breed, gender, color, coat_color, birth_date, status, photo_url, pedigree_number, microchip, mother_id, father_id'
+    const MAX_DEPTH = 3
+
+    const { data: root, error } = await supabase
       .from('dogs')
-      .select(`*, mother:dogs!dogs_mother_id_fkey(${lvl1}), father:dogs!dogs_father_id_fkey(${lvl1})`)
+      .select(FIELDS)
       .eq('id', id)
       .single()
-    if (error) return null
-    return data
+    if (error || !root) return null
+
+    // Ogni nodo porta con sé la catena di id dei propri discendenti fino alla
+    // radice: un genitore già presente nella catena verrebbe a essere antenato
+    // di se stesso, quindi viene ignorato (protezione contro self-parent e cicli
+    // A→B→A, anche su dati già corrotti). Gli antenati vengono clonati per
+    // posizione così lo stesso cane può comparire legittimamente su più rami
+    // (consanguineità) senza condividere la catena.
+    let frontier = [{ node: root, ancestry: new Set([root.id]) }]
+    for (let depth = 0; depth < MAX_DEPTH; depth++) {
+      const ids = [...new Set(
+        frontier.flatMap(({ node, ancestry }) =>
+          [node.mother_id, node.father_id].filter(pid => pid && !ancestry.has(pid))
+        )
+      )]
+      if (ids.length === 0) break
+
+      const { data: parents, error: pErr } = await supabase
+        .from('dogs')
+        .select(FIELDS)
+        .in('id', ids)
+      if (pErr) break
+
+      const byId = {}
+      ;(parents || []).forEach(p => { byId[p.id] = p })
+
+      const next = []
+      const link = (node, ancestry, field, key) => {
+        const pid = node[field]
+        if (pid && !ancestry.has(pid) && byId[pid]) {
+          const parent = { ...byId[pid] }
+          node[key] = parent
+          next.push({ node: parent, ancestry: new Set(ancestry).add(parent.id) })
+        } else {
+          node[key] = null
+        }
+      }
+      for (const { node, ancestry } of frontier) {
+        link(node, ancestry, 'mother_id', 'mother')
+        link(node, ancestry, 'father_id', 'father')
+      }
+      frontier = next
+    }
+    // Le foglie (ultimo livello caricato) restano senza mother/father espliciti.
+    frontier.forEach(({ node }) => { if (!('mother' in node)) node.mother = null; if (!('father' in node)) node.father = null })
+
+    return root
   },
 
   async getMatingsForDog(dogId) {
