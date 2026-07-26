@@ -1,16 +1,25 @@
 import { useState, useEffect } from 'react'
-import { User, Building, Bell, Lock, Save, FileText, BellOff, BellRing, Smartphone, Info } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { User, Building, Bell, Lock, Save, FileText, BellOff, BellRing, Smartphone, Info, CreditCard, Check, Minus } from 'lucide-react'
 import SimpleEditor from '@/components/ui/SimpleEditor'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { useNotifications } from '@/hooks/useNotifications'
+import { usePlan } from '@/hooks/usePlan'
+import { PLANS, PLAN_ORDER, FEATURE_LABELS, LIMIT_LABELS } from '@/lib/plans'
 import toast from 'react-hot-toast'
 
 export default function Settings() {
   const { user } = useAuth()
   const { isSubscribed, permission, isReady, sdkUnavailable, enableNotifications, disableNotifications } = useNotifications()
+  const { planId, isLaunchMode } = usePlan()
   const [notifLoading, setNotifLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('profilo')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(() =>
+    ['profilo', 'allevamento', 'piano', 'documenti', 'notifiche', 'sicurezza'].includes(searchParams.get('tab'))
+      ? searchParams.get('tab')
+      : 'profilo'
+  )
   const [loading, setLoading] = useState(false)
   const [settingsId, setSettingsId] = useState(null)
   const [passwordData, setPasswordData] = useState({
@@ -204,6 +213,7 @@ export default function Settings() {
   const tabs = [
     { id: 'profilo', label: 'Profilo', icon: User },
     !isPrivate && { id: 'allevamento', label: 'Allevamento', icon: Building },
+    { id: 'piano', label: 'Piano', icon: CreditCard },
     { id: 'documenti', label: 'Documenti', icon: FileText },
     { id: 'notifiche', label: 'Notifiche', icon: Bell },
     { id: 'sicurezza', label: 'Sicurezza', icon: Lock },
@@ -396,6 +406,110 @@ export default function Settings() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {activeTab === 'piano' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">Il tuo piano</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Gestisci il tuo abbonamento e confronta i piani disponibili.
+                  </p>
+                </div>
+
+                {/* Piano attuale */}
+                <div className="p-5 bg-green-50 rounded-2xl border-2 border-green-200 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-green-800">
+                      Piano attuale: {PLANS[planId]?.name || 'Base'}
+                    </p>
+                    {isLaunchMode && (
+                      <p className="text-sm text-green-700">
+                        🎉 Durante il periodo di lancio <strong>tutte le funzioni sono incluse gratuitamente</strong> per tutti.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confronto piani */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {PLAN_ORDER.map((id) => {
+                    const p = PLANS[id]
+                    const isCurrent = id === planId
+                    return (
+                      <div
+                        key={id}
+                        className={`p-5 rounded-2xl border-2 flex flex-col ${
+                          isCurrent ? 'border-primary-500 bg-primary-50/40' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between">
+                            <p className="font-black text-gray-900">{p.name}</p>
+                            {isCurrent && (
+                              <span className="text-xs font-bold text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">
+                                Attuale
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">{p.tagline}</p>
+                          <p className="mt-2">
+                            <span className="text-2xl font-black text-gray-900">
+                              {p.priceYearly === 0 ? 'Gratis' : `€${p.priceYearly.toFixed(2).replace('.', ',')}`}
+                            </span>
+                            {p.priceYearly > 0 && <span className="text-sm text-gray-500"> /anno</span>}
+                          </p>
+                          {p.priceYearly > 0 && (
+                            <p className="text-xs text-gray-400 mt-0.5">Rinnovo annuale automatico, disdici quando vuoi</p>
+                          )}
+                        </div>
+
+                        <ul className="space-y-1.5 text-sm flex-1">
+                          {Object.entries(LIMIT_LABELS).map(([key, label]) => (
+                            <li key={key} className="flex items-center gap-2 text-gray-700">
+                              <Check className="w-4 h-4 text-green-500 shrink-0" />
+                              {label}: <strong>{p.limits[key] === null ? 'illimitati' : p.limits[key]}</strong>
+                            </li>
+                          ))}
+                          {Object.entries(FEATURE_LABELS).map(([key, label]) => (
+                            <li
+                              key={key}
+                              className={`flex items-center gap-2 ${
+                                p.features[key] ? 'text-gray-700' : 'text-gray-400'
+                              }`}
+                            >
+                              {p.features[key] ? (
+                                <Check className="w-4 h-4 text-green-500 shrink-0" />
+                              ) : (
+                                <Minus className="w-4 h-4 text-gray-300 shrink-0" />
+                              )}
+                              {label}
+                            </li>
+                          ))}
+                        </ul>
+
+                        {p.priceYearly > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <span className="block text-center text-sm font-bold text-gray-400">
+                              Disponibile a breve
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {isLaunchMode && (
+                  <p className="text-xs text-gray-400">
+                    I prezzi e i contenuti dei piani sono indicativi e potranno cambiare prima dell'attivazione degli abbonamenti.
+                    Chi si registra durante il lancio verrà avvisato in anticipo.
+                  </p>
+                )}
+              </div>
             )}
 
             {activeTab === 'documenti' && (

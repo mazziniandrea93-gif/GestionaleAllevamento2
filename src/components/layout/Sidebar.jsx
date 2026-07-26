@@ -8,19 +8,24 @@ import {
   Euro,
   TrendingUp,
   Trophy,
+  ListChecks,
+  Users,
   Settings,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useMembership } from '@/hooks/useMembership'
 
 const allNavigation = [
-  { name: 'Dashboard', to: '/', icon: LayoutDashboard },
-  { name: 'I Miei Cani', to: '/dogs', icon: Dog },
-  { name: 'Riproduzione', to: '/breeding', icon: Heart, breedingOnly: true },
-  { name: 'Cuccioli', to: '/puppies', icon: Baby, breedingOnly: true },
-  { name: 'Finanze', to: '/finance', icon: Euro },
-  { name: 'Salute', to: '/health', icon: TrendingUp },
-  { name: 'Giudici', to: '/judges', icon: Trophy },
-  { name: 'Calendario', to: '/calendar', icon: Calendar },
+  { name: 'Dashboard', to: '/', icon: LayoutDashboard, module: 'dashboard' },
+  { name: 'I Miei Cani', to: '/dogs', icon: Dog, module: 'dogs' },
+  { name: 'Riproduzione', to: '/breeding', icon: Heart, breedingOnly: true, module: 'breeding' },
+  { name: 'Cuccioli', to: '/puppies', icon: Baby, breedingOnly: true, module: 'puppies' },
+  { name: 'Finanze', to: '/finance', icon: Euro, module: 'finance' },
+  { name: 'Salute', to: '/health', icon: TrendingUp, module: 'health' },
+  { name: 'Routine', to: '/routines', icon: ListChecks, module: 'routines' },
+  { name: 'Dipendenti', to: '/staff', icon: Users, module: 'staff' },
+  { name: 'Giudici', to: '/judges', icon: Trophy, module: 'judges' },
+  { name: 'Calendario', to: '/calendar', icon: Calendar, module: 'calendar' },
 ]
 
 function BrandIcon() {
@@ -37,8 +42,11 @@ function BrandIcon() {
 
 export default function Sidebar() {
   const { isPrivate } = useAuth()
+  const { can, isOwner } = useMembership()
   const navigate = useNavigate()
-  const navigation = allNavigation.filter(item => !isPrivate || !item.breedingOnly)
+  const navigation = allNavigation.filter(
+    item => (!isPrivate || !item.breedingOnly) && can(item.module)
+  )
 
   return (
     <aside className="w-64 bg-primary-900 text-white hidden md:flex flex-col py-6 px-4">
@@ -73,15 +81,17 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="mt-auto pt-4 border-t border-primary-800 space-y-1">
-        <button
-          onClick={() => navigate('/settings')}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-primary-200 hover:bg-white/10 hover:text-white transition-all"
-        >
-          <Settings className="w-4 h-4 flex-shrink-0" />
-          <span className="text-sm">Impostazioni</span>
-        </button>
-      </div>
+      {isOwner && (
+        <div className="mt-auto pt-4 border-t border-primary-800 space-y-1">
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-primary-200 hover:bg-white/10 hover:text-white transition-all"
+          >
+            <Settings className="w-4 h-4 flex-shrink-0" />
+            <span className="text-sm">Impostazioni</span>
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

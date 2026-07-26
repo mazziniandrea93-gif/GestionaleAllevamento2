@@ -1,10 +1,11 @@
 import {
   Search, Bell, LogOut, User, X, Settings, UserCircle, Menu,
-  LayoutDashboard, Dog, Calendar, Heart, Baby, Euro, TrendingUp
+  LayoutDashboard, Dog, Calendar, Heart, Baby, Euro, TrendingUp, ListChecks, Users
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { useAuth } from '../../contexts/AuthContext'
+import { useMembership } from '../../hooks/useMembership'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import { useState, useEffect, useRef } from 'react'
@@ -12,6 +13,7 @@ import { useNavigate, NavLink } from 'react-router-dom'
 
 export default function Header() {
 const { user, signOut } = useAuth()
+  const { can, isOwner, ownerId } = useMembership()
   const navigate = useNavigate()
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -47,10 +49,10 @@ const { user, signOut } = useAuth()
 
   // Carica notifiche
   useEffect(() => {
-    if (user) {
+    if (user && ownerId) {
       loadNotifications()
     }
-  }, [user])
+  }, [user, ownerId])
 
   const loadNotifications = async () => {
     try {
@@ -61,7 +63,7 @@ const { user, signOut } = useAuth()
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', ownerId)
         .eq('completed', false)
         .gte('event_date', new Date().toISOString().split('T')[0])
         .lte('event_date', weekFromNow.toISOString().split('T')[0])
@@ -72,7 +74,7 @@ const { user, signOut } = useAuth()
       const { data: puppies, error: puppiesError } = await supabase
         .from('puppies')
         .select('*, litters(birth_date)')
-        .eq('user_id', user.id)
+        .eq('user_id', ownerId)
         .eq('status', 'disponibile')
         .limit(3)
 
@@ -126,7 +128,7 @@ const { user, signOut } = useAuth()
       const { data: dogs, error: dogsError } = await supabase
         .from('dogs')
         .select('id, name, breed, status')
-        .eq('user_id', user.id)
+        .eq('user_id', ownerId)
         .or(`name.ilike.%${searchLower}%,breed.ilike.%${searchLower}%,microchip.ilike.%${searchLower}%`)
         .limit(5)
 
@@ -134,7 +136,7 @@ const { user, signOut } = useAuth()
       const { data: puppies, error: puppiesError } = await supabase
         .from('puppies')
         .select('id, name, gender, status')
-        .eq('user_id', user.id)
+        .eq('user_id', ownerId)
         .or(`name.ilike.%${searchLower}%`)
         .limit(5)
 
@@ -142,7 +144,7 @@ const { user, signOut } = useAuth()
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select('id, title, event_type, event_date')
-        .eq('user_id', user.id)
+        .eq('user_id', ownerId)
         .or(`title.ilike.%${searchLower}%,description.ilike.%${searchLower}%`)
         .limit(5)
 
@@ -211,17 +213,19 @@ const { user, signOut } = useAuth()
     }
   }
 
-  // Navigation items per mobile menu
+  // Navigation items per mobile menu (filtrati per permessi del dipendente)
   const navigation = [
-    { name: 'Dashboard', to: '/', icon: LayoutDashboard },
-    { name: 'I Miei Cani', to: '/dogs', icon: Dog },
-    { name: 'Riproduzione', to: '/breeding', icon: Heart },
-    { name: 'Cuccioli', to: '/puppies', icon: Baby },
-    { name: 'Finanze', to: '/finance', icon: Euro },
-    { name: 'Salute', to: '/health', icon: TrendingUp },
-    { name: 'Calendario', to: '/calendar', icon: Calendar },
-    { name: 'Impostazioni', to: '/settings', icon: Settings },
-  ]
+    { name: 'Dashboard', to: '/', icon: LayoutDashboard, module: 'dashboard' },
+    { name: 'I Miei Cani', to: '/dogs', icon: Dog, module: 'dogs' },
+    { name: 'Riproduzione', to: '/breeding', icon: Heart, module: 'breeding' },
+    { name: 'Cuccioli', to: '/puppies', icon: Baby, module: 'puppies' },
+    { name: 'Finanze', to: '/finance', icon: Euro, module: 'finance' },
+    { name: 'Salute', to: '/health', icon: TrendingUp, module: 'health' },
+    { name: 'Routine', to: '/routines', icon: ListChecks, module: 'routines' },
+    { name: 'Dipendenti', to: '/staff', icon: Users, module: 'staff' },
+    { name: 'Calendario', to: '/calendar', icon: Calendar, module: 'calendar' },
+    { name: 'Impostazioni', to: '/settings', icon: Settings, module: 'settings' },
+  ].filter(item => can(item.module))
 
   return (
     <>
@@ -393,29 +397,31 @@ const { user, signOut } = useAuth()
                   <p className="text-xs text-gray-500">Gestionale Allevamento</p>
                 </div>
 
-                <div className="p-2">
-                  <button
-                    onClick={() => {
-                      navigate('/settings')
-                      setShowUserMenu(false)
-                    }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-lg transition flex items-center gap-3"
-                  >
-                    <Settings className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-700">Impostazioni</span>
-                  </button>
+                {isOwner && (
+                  <div className="p-2">
+                    <button
+                      onClick={() => {
+                        navigate('/settings')
+                        setShowUserMenu(false)
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-lg transition flex items-center gap-3"
+                    >
+                      <Settings className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-700">Impostazioni</span>
+                    </button>
 
-                  <button
-                    onClick={() => {
-                      navigate('/settings')
-                      setShowUserMenu(false)
-                    }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-lg transition flex items-center gap-3"
-                  >
-                    <UserCircle className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-700">Profilo</span>
-                  </button>
-                </div>
+                    <button
+                      onClick={() => {
+                        navigate('/settings')
+                        setShowUserMenu(false)
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 rounded-lg transition flex items-center gap-3"
+                    >
+                      <UserCircle className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-700">Profilo</span>
+                    </button>
+                  </div>
+                )}
 
                 <div className="p-2 border-t border-gray-200">
                   <button

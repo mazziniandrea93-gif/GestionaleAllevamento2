@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Mail, Lock, Building2, ArrowRight } from 'lucide-react'
+import { Mail, Lock, Building2, ArrowRight, Info } from 'lucide-react'
 
 function BrandIcon() {
   return (
@@ -25,6 +25,7 @@ export function Auth() {
   const navigate = useNavigate()
 
   const isLogin = view === 'login'
+  const isEmployee = view === 'register-dipendente'
 
   function switchView(next) {
     setView(next)
@@ -112,6 +113,28 @@ export function Auth() {
     }
   }
 
+  // Registrazione di un dipendente invitato: nessun allevamento da creare,
+  // solo l'account. Il collegamento alla riga staff avviene in automatico
+  // (trigger su email) — vedi supabase/memberships.sql.
+  const handleRegisterEmployee = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { account_type: 'dipendente' } }
+      })
+      if (error) throw error
+      toast.success('Registrazione completata! Conferma la mail se richiesto, poi accedi.')
+      switchView('login')
+    } catch (error) {
+      toast.error(error.message || 'Errore durante la registrazione')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex">
 
@@ -164,11 +187,13 @@ export function Auth() {
             <h2 className="text-3xl font-black text-primary-900">
               {view === 'login' && 'Bentornato'}
               {view === 'register' && 'Crea account'}
+              {view === 'register-dipendente' && 'Accesso dipendente'}
               {view === 'forgot' && 'Recupera password'}
             </h2>
             <p className="text-gray-500 mt-1 text-sm">
               {view === 'login' && 'Accedi al tuo gestionale'}
               {view === 'register' && 'Inizia a gestire il tuo allevamento'}
+              {view === 'register-dipendente' && 'Registrati con l’email con cui ti hanno invitato'}
               {view === 'forgot' && 'Ti inviamo un link via email'}
             </p>
           </div>
@@ -204,8 +229,14 @@ export function Auth() {
           {/* ── LOGIN / REGISTER ── */}
           {view !== 'forgot' && (
             <>
-              <form onSubmit={isLogin ? handleLogin : handleRegister} className="space-y-4">
-                {!isLogin && (
+              <form onSubmit={isLogin ? handleLogin : (isEmployee ? handleRegisterEmployee : handleRegister)} className="space-y-4">
+                {isEmployee && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-primary-50 border border-primary-100 text-xs text-primary-700">
+                    <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>Usa la stessa email con cui il titolare ti ha invitato: verrai collegato in automatico al suo allevamento.</span>
+                  </div>
+                )}
+                {!isLogin && !isEmployee && (
                   <div className="relative">
                     <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -296,16 +327,48 @@ export function Auth() {
                 Continua con Google
               </button>
 
-              {/* Switch login/register */}
-              <p className="text-center text-sm text-gray-500 mt-6">
-                {isLogin ? 'Non hai un account?' : 'Hai già un account?'}{' '}
-                <button
-                  onClick={() => switchView(isLogin ? 'register' : 'login')}
-                  className="text-primary-700 font-bold hover:text-primary-900 transition"
-                >
-                  {isLogin ? 'Registrati' : 'Accedi'}
-                </button>
-              </p>
+              {/* Switch login / register / invito dipendente */}
+              {!isEmployee ? (
+                <>
+                  <p className="text-center text-sm text-gray-500 mt-6">
+                    {isLogin ? 'Non hai un account?' : 'Hai già un account?'}{' '}
+                    <button
+                      onClick={() => switchView(isLogin ? 'register' : 'login')}
+                      className="text-primary-700 font-bold hover:text-primary-900 transition"
+                    >
+                      {isLogin ? 'Registrati' : 'Accedi'}
+                    </button>
+                  </p>
+                  <p className="text-center text-xs text-gray-400 mt-3">
+                    Sei un dipendente invitato?{' '}
+                    <button
+                      onClick={() => switchView('register-dipendente')}
+                      className="text-primary-600 font-semibold hover:text-primary-800"
+                    >
+                      Registrati qui
+                    </button>
+                  </p>
+                </>
+              ) : (
+                <p className="text-center text-sm text-gray-500 mt-6">
+                  Hai già un account?{' '}
+                  <button
+                    onClick={() => switchView('login')}
+                    className="text-primary-700 font-bold hover:text-primary-900 transition"
+                  >
+                    Accedi
+                  </button>
+                  <span className="block text-xs text-gray-400 mt-2">
+                    Sei un allevatore?{' '}
+                    <button
+                      onClick={() => switchView('register')}
+                      className="text-primary-600 font-semibold hover:text-primary-800"
+                    >
+                      Crea un allevamento
+                    </button>
+                  </span>
+                </p>
+              )}
             </>
           )}
         </div>

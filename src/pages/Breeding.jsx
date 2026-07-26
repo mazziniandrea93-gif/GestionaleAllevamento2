@@ -7,6 +7,7 @@ import LitterCard from '@/components/breeding/LitterCard'
 import MatingForm from '@/components/breeding/MatingForm'
 import MatingCard from '@/components/breeding/MatingCard'
 import MatingPlanner from '@/components/breeding/MatingPlanner'
+import { FeatureGate, UpgradePrompt } from '@/components/FeatureGate'
 
 export default function Breeding() {
   const [activeTab, setActiveTab] = useState('cucciolate')
@@ -377,7 +378,21 @@ export default function Breeding() {
       )}
 
       {showPlanner && (
-        <MatingPlanner onClose={() => setShowPlanner(false)} />
+        <FeatureGate
+          feature="coi_planner"
+          fallback={
+            <div
+              className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+              onClick={() => setShowPlanner(false)}
+            >
+              <div className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                <UpgradePrompt feature="coi_planner" />
+              </div>
+            </div>
+          }
+        >
+          <MatingPlanner onClose={() => setShowPlanner(false)} />
+        </FeatureGate>
       )}
     </div>
   )

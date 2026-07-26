@@ -16,6 +16,22 @@ async function getCurrentUserId() {
   return user.id
 }
 
+// Owner "effettivo": se l'utente è un dipendente collegato a un allevamento
+// restituisce l'id del titolare (i dati appartengono a lui); altrimenti il
+// proprio id. Serve a marcare correttamente user_id quando un dipendente
+// scrive (es. spunta una task) — coerente con le policy RLS dei membri.
+async function getEffectiveOwnerId() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non autenticato')
+  const { data } = await supabase
+    .from('staff')
+    .select('user_id')
+    .eq('member_user_id', user.id)
+    .eq('access_status', 'attivo')
+    .maybeSingle()
+  return data?.user_id || user.id
+}
+
 // Aggiunge un intervallo (giorni/mesi/anni) a una data, restituendo una nuova Date.
 // Usato per calcolare la prossima scadenza dei promemoria sanitari ricorrenti.
 export function addInterval(date, unit, value) {
@@ -870,6 +886,189 @@ export const db = {
       last_done_date: done.toISOString().split('T')[0],
       next_due_date: next.toISOString().split('T')[0],
     })
+  },
+
+  // ============================================================
+  // ROUTINE & DIPENDENTI - Gestione operativa dell'allevamento
+  // ============================================================
+
+  // STAFF - Dipendenti / collaboratori
+  async getStaff(includeInactive = true) {
+    let query = supabase.from('staff').select('*').order('name')
+    if (!includeInactive) query = query.eq('active', true)
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  },
+
+  async createStaff(member) {
+    const userId = await getCurrentUserId()
+    const { data, error } = await supabase
+      .from('staff')
+      .insert([{ ...member, user_id: userId }])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async updateStaff(id, updates) {
+    const { data, error } = await supabase
+      .from('staff')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteStaff(id) {
+    const { error } = await supabase.from('staff').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  // ROUTINES - Template ricorrenti (es. "ogni mercoledì pulizia box")
+  async getRoutines() {
+    const { data, error } = await supabase
+      .from('routines')
+      .select('*')
+      .order('time_of_day', { nullsFirst: false })
+      .order('title')
+    if (error) throw error
+    return data || []
+  },
+
+  async createRoutine(routine) {
+    const userId = await getCurrentUserId()
+    const { data, error } = await supabase
+      .from('routines')
+      .insert([{ ...routine, user_id: userId }])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async updateRoutine(id, updates) {
+    const { data, error } = await supabase
+      .from('routines')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteRoutine(id) {
+    const { error } = await supabase.from('routines').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  // TASK GIORNALIERE - generate al volo dalle routine per una data.
+  // Le occorrenze non sono materializzate: si espandono le routine attive
+  // che ricadono nel giorno richiesto e si incrociano con routine_logs
+  // (stato "fatto" + eventuale assegnatario del giorno). days_of_week usa
+  // la convenzione JS: 0=Domenica..6=Sabato, array vuoto = ogni giorno.
+  async getRoutineTasksForDate(dateStr) {
+    const weekday = new Date(dateStr + 'T00:00:00').getDay()
+
+    const [routinesRes, staffRes] = await Promise.all([
+      supabase.from('routines').select('*').eq('active', true),
+      supabase.from('staff').select('*'),
+    ])
+    if (routinesRes.error) throw routinesRes.error
+    if (staffRes.error) throw staffRes.error
+
+    const staffById = {}
+    ;(staffRes.data || []).forEach(s => { staffById[s.id] = s })
+
+    const todays = (routinesRes.data || []).filter(
+      r => !r.days_of_week?.length || r.days_of_week.includes(weekday)
+    )
+    const ids = todays.map(r => r.id)
+
+    let logs = []
+    if (ids.length > 0) {
+      const { data, error } = await supabase
+        .from('routine_logs')
+        .select('*')
+        .eq('log_date', dateStr)
+        .in('routine_id', ids)
+      if (error) throw error
+      logs = data || []
+    }
+    const logByRoutine = {}
+    logs.forEach(l => { logByRoutine[l.routine_id] = l })
+
+    return todays
+      .map(r => {
+        const log = logByRoutine[r.id] || null
+        const staffId = (log && log.staff_id != null) ? log.staff_id : r.staff_id
+        return {
+          routine_id: r.id,
+          title: r.title,
+          category: r.category,
+          time_of_day: r.time_of_day ? r.time_of_day.slice(0, 5) : null,
+          notes: r.notes,
+          dog_ids: r.dog_ids || [],
+          date: dateStr,
+          done: !!(log && log.done),
+          done_at: log?.done_at || null,
+          staff_id: staffId || null,
+          staff: staffId ? (staffById[staffId] || null) : null,
+        }
+      })
+      .sort((a, b) => {
+        const ta = a.time_of_day || '99:99'
+        const tb = b.time_of_day || '99:99'
+        if (ta !== tb) return ta < tb ? -1 : 1
+        return a.title.localeCompare(b.title)
+      })
+  },
+
+  // Segna una routine come fatta/da fare in un giorno (upsert nel log,
+  // senza toccare l'eventuale assegnatario del giorno).
+  async setRoutineDone(routineId, dateStr, done) {
+    const userId = await getEffectiveOwnerId()
+    const { data, error } = await supabase
+      .from('routine_logs')
+      .upsert(
+        {
+          user_id: userId,
+          routine_id: routineId,
+          log_date: dateStr,
+          done,
+          done_at: done ? new Date().toISOString() : null,
+        },
+        { onConflict: 'routine_id,log_date' }
+      )
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  // Assegna la routine a un dipendente solo per quel giorno (upsert del
+  // solo staff_id: non tocca lo stato "fatto" già presente).
+  async assignRoutineForDate(routineId, dateStr, staffId) {
+    const userId = await getEffectiveOwnerId()
+    const { data, error } = await supabase
+      .from('routine_logs')
+      .upsert(
+        {
+          user_id: userId,
+          routine_id: routineId,
+          log_date: dateStr,
+          staff_id: staffId || null,
+        },
+        { onConflict: 'routine_id,log_date' }
+      )
+      .select()
+      .single()
+    if (error) throw error
+    return data
   },
 
   // STORAGE - Upload immagini
