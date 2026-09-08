@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import PuppyForm from '@/components/puppies/PuppyForm'
-import PuppyCard from '@/components/puppies/PuppyCard'
+import PuppyRow from '@/components/puppies/PuppyRow'
 
 // Una cucciolata è "passata" se nessun cucciolo è disponibile o prenotato
 function isLitterPast(puppies) {
@@ -15,7 +15,7 @@ function isLitterPast(puppies) {
 }
 
 // Gruppo cucciolata con ricerca interna e toggle apri/chiudi
-function LitterGroup({ group, onEdit, onDelete, defaultOpen = true }) {
+function LitterGroup({ group, onEdit, onDelete, onRename, defaultOpen = true }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(defaultOpen)
 
@@ -103,9 +103,9 @@ function LitterGroup({ group, onEdit, onDelete, defaultOpen = true }) {
       {/* Grid cuccioli (collassabile) */}
       {isOpen && (
         visiblePuppies.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-2.5">
             {visiblePuppies.map(puppy => (
-              <PuppyCard key={puppy.id} puppy={puppy} onEdit={onEdit} onDelete={onDelete} />
+              <PuppyRow key={puppy.id} puppy={puppy} onEdit={onEdit} onDelete={onDelete} onRename={onRename} />
             ))}
           </div>
         ) : (
@@ -210,6 +210,17 @@ export default function Puppies() {
   }
 
   const handleEdit = (puppy) => { setSelectedPuppy(puppy); setIsFormOpen(true) }
+
+  const handleRename = async (puppy, newName) => {
+    try {
+      await db.updatePuppy(puppy.id, { name: newName || null })
+      queryClient.invalidateQueries(['puppies'])
+      toast.success('Nome aggiornato')
+    } catch (error) {
+      console.error('rename puppy error:', error)
+      toast.error('Errore nel salvataggio del nome')
+    }
+  }
 
   const handleDelete = async (puppy) => {
     if (!confirm(`Sei sicuro di voler eliminare ${puppy.name || 'questo cucciolo'}?`)) return
@@ -340,6 +351,7 @@ export default function Puppies() {
               group={group}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRename={handleRename}
               defaultOpen={tab !== 'passate'}
             />
           ))}

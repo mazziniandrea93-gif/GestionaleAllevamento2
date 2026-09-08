@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
+import { generatePassaggioProprieta } from '@/lib/enciPassaggio'
 import jsPDF from 'jspdf'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
+import toast from 'react-hot-toast'
 import {
   X, FileText, Loader2, FileDown, Receipt,
-  ChevronRight, AlertCircle, ClipboardList,
+  ChevronRight, AlertCircle, ClipboardList, ArrowRightLeft,
 } from 'lucide-react'
 
 // ── Costanti layout A4 (mm) ───────────────────────────────────────────────────
@@ -482,6 +484,70 @@ const ALL_DOC_TYPES = [
       { key: 'note',                 label: 'Note aggiuntive',        type: 'textarea', placeholder: '' },
     ],
   },
+  {
+    id: 'passaggio',
+    label: 'Passaggio di Proprietà (ENCI)',
+    icon: ArrowRightLeft,
+    color: 'bg-blue-50 border-blue-200 text-blue-700',
+    desc: 'Compila il modulo ENCI ufficiale F-7242 per il trasferimento di proprietà. Pronto da stampare, firmare e consegnare alla Delegazione.',
+    isEnci: true,
+    fields: [
+      { type: 'section', label: 'Delegazione' },
+      { key: 'delegazione',   label: 'Delegazione ENCI di',            type: 'text', placeholder: 'Es. Milano' },
+
+      { type: 'section', label: 'Cane' },
+      { key: 'nome_cane',     label: 'Nome del cane',                  type: 'text' },
+      { key: 'microchip',     label: 'Microchip',                      type: 'text' },
+      { key: 'num_registro',  label: 'N° iscrizione registro (ROI/RSR)', type: 'text' },
+      { key: 'registro_roi',  label: 'Iscritto al registro ROI',       type: 'checkbox' },
+
+      { type: 'section', label: 'Cedente (attuale proprietario)' },
+      { key: 'cedente_nome',  label: 'Cognome e Nome',                 type: 'text' },
+      { key: 'cedente_via',   label: 'Via',                            type: 'text' },
+      { key: 'cedente_civico',label: 'N° civico',                      type: 'text' },
+      { key: 'cedente_cap',   label: 'CAP',                            type: 'text' },
+      { key: 'cedente_citta', label: 'Città',                          type: 'text' },
+      { key: 'cedente_cf',    label: 'Codice Fiscale / P.IVA',         type: 'text' },
+      { key: 'cedente_tel',   label: 'Telefono',                       type: 'tel' },
+      { key: 'cedente_cell',  label: 'Cellulare',                      type: 'tel' },
+      { key: 'cedente_email', label: 'Email',                          type: 'email' },
+      { key: 'cedente_pec',   label: 'PEC',                            type: 'email' },
+      { key: 'socio_allevatore', label: 'Socio Allevatore ENCI',       type: 'checkbox' },
+
+      { type: 'section', label: 'Nuovo proprietario (acquirente)' },
+      { key: 'nuovo_nome',    label: 'Cognome e Nome',                 type: 'text' },
+      { key: 'nuovo_via',     label: 'Via',                            type: 'text' },
+      { key: 'nuovo_civico',  label: 'N° civico',                      type: 'text' },
+      { key: 'nuovo_cap',     label: 'CAP',                            type: 'text' },
+      { key: 'nuovo_citta',   label: 'Città',                          type: 'text' },
+      { key: 'nuovo_cf',      label: 'Codice Fiscale',                 type: 'text' },
+      { key: 'nuovo_tel',     label: 'Telefono',                       type: 'tel' },
+      { key: 'nuovo_cell',    label: 'Cellulare',                      type: 'tel' },
+      { key: 'nuovo_email',   label: 'Email',                          type: 'email' },
+      { key: 'nuovo_pec',     label: 'PEC',                            type: 'email' },
+
+      { type: 'section', label: 'Cessione' },
+      { key: 'data_cessione', label: 'Data di cessione',               type: 'date' },
+      { key: 'pratica_sig',   label: 'Pratica presentata dal sig.',    type: 'text' },
+
+      { type: 'section', label: 'Sodalizio (facoltativo)' },
+      { key: 'sodalizio_nome', label: 'Nome sodalizio',                type: 'text' },
+      { key: 'sodalizio_anno', label: 'Anno',                          type: 'text', placeholder: '2026' },
+      { key: 'tessera_num',    label: 'N° tessera',                    type: 'text' },
+
+      { type: 'section', label: 'Certificato genealogico' },
+      { key: 'cert_allegato', label: 'Certificato allegato',           type: 'checkbox' },
+      { key: 'cert_inviato',  label: 'Inviato a cura del cedente',     type: 'checkbox' },
+
+      { type: 'section', label: 'Consensi privacy ENCI (facoltativi)' },
+      { key: 'cedente_consenso',   label: 'Cedente — consenso trattamento dati',    type: 'checkbox' },
+      { key: 'cedente_pubblicita', label: 'Cedente — pubblicità',                   type: 'checkbox' },
+      { key: 'cedente_mkt',        label: 'Cedente — marketing',                    type: 'checkbox' },
+      { key: 'nuovo_consenso',     label: 'Acquirente — consenso trattamento dati', type: 'checkbox' },
+      { key: 'nuovo_pubblicita',   label: 'Acquirente — pubblicità',                type: 'checkbox' },
+      { key: 'nuovo_mkt',          label: 'Acquirente — marketing',                 type: 'checkbox' },
+    ],
+  },
 ]
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
@@ -514,6 +580,18 @@ export default function DocumentiModal({ dog, onClose, filterTypes, initialDocTy
         else f.data_vendita = dog.sale_date
       }
     }
+    if (typeId === 'passaggio') {
+      const s = normalizeSubject(dog)
+      f.nome_cane = dog.nickname || dog.name || ''
+      f.microchip = dog.microchip || ''
+      f.num_registro = s.pedigree_number || ''
+      f.registro_roi = !!s.pedigree_number
+      if (dog.buyer_name) f.nuovo_nome = dog.buyer_name
+      const [bemail, bphone] = (dog.buyer_contact || '').split('|')
+      if (bphone?.trim()) f.nuovo_tel = bphone.trim()
+      if (bemail?.trim()) f.nuovo_email = bemail.trim()
+      if (dog.sale_date) f.data_cessione = dog.sale_date
+    }
     return f
   }
 
@@ -529,21 +607,50 @@ export default function DocumentiModal({ dog, onClose, filterTypes, initialDocTy
 
   const selectedType = ALL_DOC_TYPES.find(t => t.id === docType)
 
+  // Passaggio ENCI: pre-compila il cedente con i dati dell'allevamento
+  // (Impostazioni) appena disponibili, senza sovrascrivere ciò che hai già scritto.
+  useEffect(() => {
+    if (docType !== 'passaggio' || !settings) return
+    setForm(prev => {
+      const next = { ...prev }
+      const fill = (k, val) => { if (val && !next[k]) next[k] = val }
+      fill('cedente_nome', settings.owner_name)
+      fill('cedente_cf', settings.vat_number)
+      fill('cedente_tel', settings.phone)
+      fill('cedente_email', settings.email)
+      fill('cedente_via', settings.address)
+      fill('pratica_sig', settings.owner_name)
+      return next
+    })
+  }, [docType, settings])
+
   function selectType(id) {
     setDocType(id)
     setForm(buildInitialForm(id))
     setStep('form')
   }
 
-  function handleGenerate() {
+  async function handleGenerate() {
     setGenerating(true)
     try {
-      const jDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      let pdf
-      if (docType === 'precontratto') pdf = makePrecontratto(jDoc, dog, settings, form)
-      else if (docType === 'contratto') pdf = makeContratto(jDoc, dog, settings, form, healthRecords)
-      const filename = `${(dog.name || 'cucciolo').toLowerCase().replace(/\s+/g, '_')}_${docType}_${format(new Date(), 'yyyyMMdd')}.pdf`
-      pdf.save(filename)
+      const base = (dog.name || dog.nickname || 'cane').toLowerCase().replace(/\s+/g, '_')
+      const stamp = format(new Date(), 'yyyyMMdd')
+
+      if (docType === 'passaggio') {
+        // Riempie il modulo ENCI reale (le date vanno in gg/mm/aaaa)
+        const data = { ...form }
+        if (form.data_cessione) data.data_cessione = d(form.data_cessione)
+        await generatePassaggioProprieta(data, `passaggio_proprieta_${base}_${stamp}.pdf`)
+      } else {
+        const jDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+        let pdf
+        if (docType === 'precontratto') pdf = makePrecontratto(jDoc, dog, settings, form)
+        else if (docType === 'contratto') pdf = makeContratto(jDoc, dog, settings, form, healthRecords)
+        pdf.save(`${base}_${docType}_${stamp}.pdf`)
+      }
+    } catch (err) {
+      console.error('generate document error:', err)
+      toast.error(err?.message || 'Errore durante la generazione del documento')
     } finally {
       setGenerating(false)
     }
@@ -615,29 +722,58 @@ export default function DocumentiModal({ dog, onClose, filterTypes, initialDocTy
                 </div>
               </div>
 
-              <p className="text-sm font-semibold text-gray-600">Completa i dati mancanti</p>
-              {selectedType.fields.map(field => (
-                <div key={field.key}>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">{field.label}</label>
-                  {field.type === 'textarea' ? (
-                    <textarea
-                      rows={3}
-                      value={form[field.key] || ''}
-                      placeholder={field.placeholder}
-                      onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm resize-none"
-                    />
-                  ) : (
-                    <input
-                      type={field.type}
-                      value={form[field.key] || ''}
-                      placeholder={field.placeholder}
-                      onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm"
-                    />
-                  )}
+              {selectedType.isEnci && (
+                <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>Genererai il <strong>modulo ENCI ufficiale F-7242</strong> già compilato. Va poi firmato (cedente e nuovo proprietario) e consegnato alla Delegazione entro 30 giorni dalla cessione.</span>
                 </div>
-              ))}
+              )}
+
+              <p className="text-sm font-semibold text-gray-600">Completa i dati mancanti</p>
+              {selectedType.fields.map((field, idx) => {
+                if (field.type === 'section') {
+                  return (
+                    <h4 key={`sec-${idx}`} className="text-xs font-black uppercase tracking-wide text-gray-400 pt-3 mt-1 border-t border-gray-100">
+                      {field.label}
+                    </h4>
+                  )
+                }
+                if (field.type === 'checkbox') {
+                  return (
+                    <label key={field.key} className="flex items-center gap-3 cursor-pointer py-0.5">
+                      <input
+                        type="checkbox"
+                        checked={!!form[field.key]}
+                        onChange={e => setForm(f => ({ ...f, [field.key]: e.target.checked }))}
+                        className="w-5 h-5 rounded text-yellow-500 focus:ring-yellow-200"
+                      />
+                      <span className="text-sm font-semibold text-gray-700">{field.label}</span>
+                    </label>
+                  )
+                }
+                return (
+                  <div key={field.key}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">{field.label}</label>
+                    {field.type === 'textarea' ? (
+                      <textarea
+                        rows={3}
+                        value={form[field.key] || ''}
+                        placeholder={field.placeholder}
+                        onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm resize-none"
+                      />
+                    ) : (
+                      <input
+                        type={field.type}
+                        value={form[field.key] || ''}
+                        placeholder={field.placeholder}
+                        onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:outline-none text-sm"
+                      />
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

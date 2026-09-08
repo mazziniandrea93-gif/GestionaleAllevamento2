@@ -43,7 +43,7 @@ export default function PuppyCard({ puppy, onEdit, onDelete }) {
 
   // Quali tipi di documento sono disponibili in base allo stato
   const docFilterTypes =
-    puppy.status === 'venduto'    ? ['contratto'] :
+    puppy.status === 'venduto'    ? ['contratto', 'passaggio'] :
     puppy.status === 'prenotato'  ? ['precontratto', 'contratto'] :
     puppy.status === 'disponibile' ? ['precontratto'] : null
 

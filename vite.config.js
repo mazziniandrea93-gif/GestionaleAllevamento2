@@ -66,6 +66,9 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (id.includes('recharts') || id.includes('d3-')) return 'charts'
             if (id.includes('@xyflow') || id.includes('react-d3-tree') || id.includes('dagre')) return 'flow'
+            // pdf-lib: caricato in lazy solo alla generazione del modulo ENCI
+            // (import dinamico) → nessun manualChunk, resta un chunk async a parte
+            if (id.includes('pdf-lib')) return
             if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf'
             if (id.includes('@supabase')) return 'supabase'
             return 'vendor'

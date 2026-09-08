@@ -1747,7 +1747,7 @@ export default function DogDetail() {
       {isDocOpen && (
         <DocumentiModal
           dog={dog}
-          filterTypes={['contratto']}
+          filterTypes={['contratto', 'passaggio']}
           onClose={() => setIsDocOpen(false)}
         />
       )}
