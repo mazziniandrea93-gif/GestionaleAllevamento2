@@ -579,6 +579,9 @@ export default function DocumentiModal({ dog, onClose, filterTypes, initialDocTy
         if (typeId === 'precontratto') f.data_consegna = dog.sale_date
         else f.data_vendita = dog.sale_date
       }
+      if (dog.buyer_cf) f.acquirente_cf = dog.buyer_cf
+      const addr = [dog.buyer_address, dog.buyer_cap, dog.buyer_city].filter(Boolean).join(', ')
+      if (addr) f.acquirente_indirizzo = addr
     }
     if (typeId === 'passaggio') {
       const s = normalizeSubject(dog)
@@ -591,6 +594,11 @@ export default function DocumentiModal({ dog, onClose, filterTypes, initialDocTy
       if (bphone?.trim()) f.nuovo_tel = bphone.trim()
       if (bemail?.trim()) f.nuovo_email = bemail.trim()
       if (dog.sale_date) f.data_cessione = dog.sale_date
+      if (dog.buyer_cf) f.nuovo_cf = dog.buyer_cf
+      if (dog.buyer_address) f.nuovo_via = dog.buyer_address
+      if (dog.buyer_cap) f.nuovo_cap = dog.buyer_cap
+      if (dog.buyer_city) f.nuovo_citta = dog.buyer_city
+      if (dog.buyer_pec) f.nuovo_pec = dog.buyer_pec
     }
     return f
   }

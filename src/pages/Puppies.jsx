@@ -34,9 +34,9 @@ function LitterGroup({ group, onEdit, onDelete, onRename, defaultOpen = true }) 
     : group.litter_id ? 'Cucciolata' : 'Senza cucciolata'
 
   return (
-    <div>
-      {/* Header a larghezza piena */}
-      <div className="w-full bg-white border-2 border-gray-200 rounded-2xl px-5 py-3 shadow-sm mb-4 flex items-center gap-4">
+    <div className="rounded-2xl border-2 border-gray-200 overflow-hidden bg-gray-50">
+      {/* Intestazione della cucciolata */}
+      <div className="w-full bg-white px-5 py-3 flex items-center gap-4 border-b-2 border-gray-100">
         {/* Avatar + info */}
         <div className="flex items-center gap-3 shrink-0">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${group.litter_id ? 'bg-gradient-to-br from-pink-400 to-rose-500' : 'bg-gray-200'}`}>
@@ -100,17 +100,17 @@ function LitterGroup({ group, onEdit, onDelete, onRename, defaultOpen = true }) 
         </button>
       </div>
 
-      {/* Grid cuccioli (collassabile) */}
+      {/* Cuccioli contenuti nella cucciolata (collassabile) */}
       {isOpen && (
-        visiblePuppies.length > 0 ? (
-          <div className="space-y-2.5">
-            {visiblePuppies.map(puppy => (
+        <div className="p-3 space-y-2.5">
+          {visiblePuppies.length > 0 ? (
+            visiblePuppies.map(puppy => (
               <PuppyRow key={puppy.id} puppy={puppy} onEdit={onEdit} onDelete={onDelete} onRename={onRename} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400 italic pl-2">Nessun cucciolo trovato per "{search}"</p>
-        )
+            ))
+          ) : (
+            <p className="text-sm text-gray-400 italic pl-2">Nessun cucciolo trovato per "{search}"</p>
+          )}
+        </div>
       )}
     </div>
   )

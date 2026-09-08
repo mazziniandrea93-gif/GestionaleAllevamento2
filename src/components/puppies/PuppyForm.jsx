@@ -23,6 +23,11 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
     buyer_name: puppy?.buyer_name || '',
     buyer_email: buyerEmailRaw?.trim() || '',
     buyer_phone: buyerPhoneRaw?.trim() || '',
+    buyer_cf: puppy?.buyer_cf || '',
+    buyer_address: puppy?.buyer_address || '',
+    buyer_cap: puppy?.buyer_cap || '',
+    buyer_city: puppy?.buyer_city || '',
+    buyer_pec: puppy?.buyer_pec || '',
     sale_date: puppy?.sale_date || '',
     deposit_amount: puppy?.deposit_amount || '',
     deposit_date: puppy?.deposit_date || '',
@@ -64,6 +69,11 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
         deposit_date: formData.deposit_date || null,
         microchip: formData.microchip || null,
         roi_loi_number: formData.roi_loi_number?.trim() || null,
+        buyer_cf: formData.buyer_cf?.trim() || null,
+        buyer_address: formData.buyer_address?.trim() || null,
+        buyer_cap: formData.buyer_cap?.trim() || null,
+        buyer_city: formData.buyer_city?.trim() || null,
+        buyer_pec: formData.buyer_pec?.trim() || null,
       }
 
       let savedPuppy
@@ -396,6 +406,82 @@ export default function PuppyForm({ puppy, onClose, onSuccess }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
                     placeholder="+39 333 1234567"
+                  />
+                </div>
+
+                {/* Anagrafica completa acquirente: inserita qui una volta,
+                    ricompare in tutti i documenti (contratti + passaggio ENCI) */}
+                <div className="md:col-span-2 pt-1 -mb-1">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Anagrafica per i documenti (facoltativa)</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Codice Fiscale acquirente
+                  </label>
+                  <input
+                    type="text"
+                    name="buyer_cf"
+                    value={formData.buyer_cf}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                    placeholder="RSSMRA80A01F205X"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Indirizzo (via e civico)
+                  </label>
+                  <input
+                    type="text"
+                    name="buyer_address"
+                    value={formData.buyer_address}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                    placeholder="Via Roma 12"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    CAP
+                  </label>
+                  <input
+                    type="text"
+                    name="buyer_cap"
+                    value={formData.buyer_cap}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                    placeholder="20100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Città
+                  </label>
+                  <input
+                    type="text"
+                    name="buyer_city"
+                    value={formData.buyer_city}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                    placeholder="Milano"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    PEC acquirente
+                  </label>
+                  <input
+                    type="email"
+                    name="buyer_pec"
+                    value={formData.buyer_pec}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition"
+                    placeholder="nome@pec.it"
                   />
                 </div>
 
